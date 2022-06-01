@@ -9,21 +9,35 @@ const spinner = require("ora-promise")
 const md5 = require("md5");
 const $ = require("shelljs");
 
+require('dotenv').config();
+
 /* --------------------------------------------------------------- */
 
 const VALUESET = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/value-sets.csv.gpg",
-  "MD5": "e84c5c41ab44f34bf6c714ffe35d3669",
-  "LOC": "./data/value-set.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.gpg",
+  "MD5": "cc5f41beec0b9497f8074887b9399e14",
+  "LOC": "./data/valuesets.csv.gpg",
   "DES": "valueset crosswalk"
 };
 
 const TRIMESTER = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-data.csv.gpg",
-  "MD5": "35136438a780fd1235c6a36f6422c7b1",
+  "MD5": "3cf24f02a41daffa4e18532c98815676",
   "LOC": "./data/trimester.csv.gpg",
   "DES": "trimester data"
 };
+
+const DELIVERY_DATA = {
+  "MD5": "4960d82fa00da9ae3484fcb7217d4434",
+};
+
+const DEMO_DATA = {
+  "MD5": "f20f9d93b7ec639a1b44e92d4604bee3",
+};
+
+const OBS_XWALK = {
+  "MD5": "f7414dfff45b7146333ae728e7bc838c",
+}
 
 /* --------------------------------------------------------------- */
 
@@ -103,6 +117,16 @@ const checkValuesetXwalk = (cb) => {
 
 
 
+
+const decryptFiles = (cb) => {
+  $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 data/trimester.csv.gpg`);
+  $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 data/valuesets.csv.gpg`);
+  // $.exec(`echo ${process.env.GPGPASS} > hi`);
+  return cb();
+};
+
+
+
 /* ---------------------------------------------------------------
  *
  * This are the targets that download the data sources
@@ -110,10 +134,10 @@ const checkValuesetXwalk = (cb) => {
  *
  */
 
-// const analyzeDogData = (cb) => {
-//   $.exec("Rscript ./analyze-dog-data.R");
-//   cb();
-// };
+const doFeatureEngineering = (cb) => {
+  $.exec("Rscript ./feature-engineering.R");
+  cb();
+};
 
 
 /* ---------------------------------------------------------------
@@ -144,12 +168,14 @@ const mrproper = (cb) => {
 
 exports.clean     = mrproper;
 exports.setup     = setupDirs;
-exports.download  = series(downloadTrimesterData, downloadValuesetData);
+exports.download  = parallel(downloadTrimesterData, downloadValuesetData);
 exports.check     = parallel(checkTrimesterData, checkValuesetXwalk);
-// exports.analyze   = analyzeDogData;
+exports.decrypt   = decryptFiles;
+exports.analyze   = doFeatureEngineering;
 
 exports.default   = series(exports.setup,
                            exports.download,
-                           exports.check);
-                           // exports.analyze);
+                           exports.check,
+                           exports.decrypt,
+                           exports.analyze);
 
