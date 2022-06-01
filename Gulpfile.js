@@ -135,7 +135,7 @@ const decryptFiles = (cb) => {
  */
 
 const doFeatureEngineering = (cb) => {
-  $.exec("Rscript ./feature-engineering.R");
+  $.exec("R_LIBS='~/local/R_libs' Rscript feature-engineering.R");
   cb();
 };
 
