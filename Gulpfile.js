@@ -13,31 +13,49 @@ require('dotenv').config();
 
 /* --------------------------------------------------------------- */
 
-const VALUESET = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.gpg",
-  "MD5": "cc5f41beec0b9497f8074887b9399e14",
-  "LOC": "./data/valuesets.csv.gpg",
-  "DES": "valueset crosswalk"
-};
+const INPUT_DATA = {};
 
-const TRIMESTER = {
+INPUT_DATA.TRIMESTER = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-data.csv.gpg",
   "MD5": "3cf24f02a41daffa4e18532c98815676",
   "LOC": "./data/trimester.csv.gpg",
   "DES": "trimester data"
 };
 
-const DELIVERY_DATA = {
+INPUT_DATA.VALUESET = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.gpg",
+  "MD5": "cc5f41beec0b9497f8074887b9399e14",
+  "LOC": "./data/valuesets.csv.gpg",
+  "DES": "valueset crosswalk"
+};
+
+INPUT_DATA.DELIVERY_DATA = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/delivery-data.csv.gpg",
   "MD5": "4960d82fa00da9ae3484fcb7217d4434",
+  "LOC": "./data/delivery.csv.gpg",
+  "DES": "FILL OUT LATER"
 };
 
-const DEMO_DATA = {
+INPUT_DATA.DEMO_DATA = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/demo-data.csv.gpg",
   "MD5": "f20f9d93b7ec639a1b44e92d4604bee3",
+  "LOC": "./data/demo.csv.gpg",
+  "DES": "FILL OUT LATER"
 };
 
-const OBS_XWALK = {
+INPUT_DATA.OBS_XWALK = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/obs-xwalk.csv.gpg",
   "MD5": "f7414dfff45b7146333ae728e7bc838c",
-}
+  "LOC": "./data/obs-walk.csv.gpg",
+  "DES": "FILL OUT LATER"
+};
+
+INPUT_DATA.SCREENING_DATA = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/screening.csv.gpg",
+  "MD5": "e6253eabae8828ebb9e69da91b7ee203",
+  "LOC": "./data/screening.csv.gpg",
+  "DES": "FILL OUT LATER!"
+};
 
 /* --------------------------------------------------------------- */
 
@@ -63,64 +81,63 @@ const setupDirs = (cb) => {
  *
  */
 
-const downloadTrimesterData = (cb) => {
-  if (fs.existsSync(TRIMESTER.LOC)){
-    console.log(`already have ${TRIMESTER.DES}`);
+const downloadADatum = (cb, dataObj) => {
+  if (fs.existsSync(dataObj.LOC)) {
+    console.log(`already have ${dataObj.DES}`);
     return cb();
   }
-  return spinner(`downloading ${TRIMESTER.DES}`,
-    () => axios.get(TRIMESTER.URL)).
-    then(resp => fs.promises.writeFile(TRIMESTER.LOC, resp.data)).
+  return spinner(`downloading ${dataObj.DES}`,
+    () => axios.get(dataObj.URL)).
+    then(resp => fs.promises.writeFile(dataObj.LOC, resp.data)).
     catch(err => console.error(`failure: ${err}`));
 };
 
-const downloadValuesetData = (cb) => {
-  if (fs.existsSync(VALUESET.LOC)){
-    console.log(`already have ${VALUESET.DES}`);
-    return cb();
-  }
-  return spinner(`downloading ${VALUESET.DES}`,
-    () => axios.get(VALUESET.URL)).
-    then(resp => fs.promises.writeFile(VALUESET.LOC, resp.data)).
-    catch(err => console.error(`failure: ${err}`));
-};
+const downloadTrimesterData = (cb)  => downloadADatum(cb, INPUT_DATA.TRIMESTER);
+const downloadValuesetData = (cb)   => downloadADatum(cb, INPUT_DATA.VALUESET);
+const downloadDeliveryData = (cb)   => downloadADatum(cb, INPUT_DATA.DELIVERY_DATA);
+const downloadDemoData = (cb)       => downloadADatum(cb, INPUT_DATA.DEMO_DATA);
+const downloadObsXwalk = (cb)       => downloadADatum(cb, INPUT_DATA.OBS_XWALK);
+const downloadScreeningData = (cb)  => downloadADatum(cb, INPUT_DATA.SCREENING_DATA);
+
 
 /* ---------------------------------------------------------------
  *
- * This are the targets that download the data sources
+ * These are the targets that download the data sources
  * and place them in `./data`
  *
  */
 
-const checkTrimesterData = (cb) => {
-  return fs.promises.readFile(TRIMESTER.LOC).
+const checkADatum = (cb, dataObj) => {
+  return fs.promises.readFile(dataObj.LOC).
     then(buf => {
-      if (md5(buf) !== TRIMESTER.MD5){
-        throw Error(`Unexpected change in ${TRIMESTER.LOC}`);
+      if (md5(buf) !== dataObj.MD5){
+        throw Error(`Unexpected change in ${dataObj.LOC}`);
       } else {
         console.log("Hash of Trimester data is as expected");
       }
     });
 };
 
-// TODO make DRY-er
-const checkValuesetXwalk = (cb) => {
-  return fs.promises.readFile(VALUESET.LOC).
-    then(buf => {
-      if (md5(buf) !== VALUESET.MD5){
-        throw Error(`Unexpected change in ${VALUESET.LOC}`);
-      } else {
-        console.log("Valueset crosswalk data is as expected");
-      }
-    });
-};
+const checkTrimesterData = (cb)  => checkADatum(cb, INPUT_DATA.TRIMESTER);
+const checkValuesetData = (cb)   => checkADatum(cb, INPUT_DATA.VALUESET);
+const checkDeliveryData = (cb)   => checkADatum(cb, INPUT_DATA.DELIVERY_DATA);
+const checkDemoData = (cb)       => checkADatum(cb, INPUT_DATA.DEMO_DATA);
+const checkObsXwalk = (cb)       => checkADatum(cb, INPUT_DATA.OBS_XWALK);
+const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
 
 
 
+/* ---------------------------------------------------------------
+ *
+ * This is the target that decrypts the files
+ *
+ */
 
 const decryptFiles = (cb) => {
-  $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 data/trimester.csv.gpg`);
-  $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 data/valuesets.csv.gpg`);
+  const all = $.ls("data/*.gpg");
+  all.map(filename => {
+    $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 ${filename}`);
+  });
   // $.exec(`echo ${process.env.GPGPASS} > hi`);
   return cb();
 };
@@ -168,8 +185,21 @@ const mrproper = (cb) => {
 
 exports.clean     = mrproper;
 exports.setup     = setupDirs;
-exports.download  = parallel(downloadTrimesterData, downloadValuesetData);
-exports.check     = parallel(checkTrimesterData, checkValuesetXwalk);
+
+exports.download  = parallel(downloadTrimesterData,
+                             downloadValuesetData,
+                             downloadDeliveryData,
+                             downloadDemoData,
+                             downloadObsXwalk,
+                             downloadScreeningData);
+
+exports.check  = parallel(checkTrimesterData,
+                          checkValuesetData,
+                          checkDeliveryData,
+                          checkDemoData,
+                          checkObsXwalk,
+                          checkScreeningData);
+
 exports.decrypt   = decryptFiles;
 exports.analyze   = doFeatureEngineering;
 
