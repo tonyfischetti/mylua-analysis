@@ -86,7 +86,15 @@ part1 %>% dt_keep_cols(c("MyLUA_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Preeclampsia",
                          "Pharyngitis",
                          "Sleep Disorders",
-                         "Vomiting"))
+                         "Vomiting",
+                         # added valuesets for LOINCS - CB220522
+                         "MYLUA-ANXIETY",
+                         "MYLUA-LOINCTEST",
+                         "MYLUA-MOOD",
+                         "MYLUA-PAIN",
+                         "MYLUA-SDOH",
+                         "MYLUA-SLEEP"
+                         ))
 
 
 # columns to limit to trimester 4 and after
