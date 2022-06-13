@@ -16,14 +16,18 @@ library(tidyr)
 library(stringr)
 library(libbib)
 
-valueset <- fread("./data/valuesets.csv") %>%
+valueset <- fread("./data/valuesets.csv", na.strings=c("", "NULL")) %>%
   select(vsacname, codesystem, code, description)
+
+valueset
 
 trimesters <- fread("./data/trimester.csv")
 
-trimesters %>%
+
+trimesters %<>%
   ### just the necessary columns, for demonstration
-  select(MyLUA_Index_PatientID, MyLua_OBEpisode_ID, Trimester, DX_Codes,
+  rename(MyLua_Index_PatientID=MyLUA_Index_PatientID) %>%
+  select(MyLua_Index_PatientID, MyLua_OBEpisode_ID, Trimester, DX_Codes,
          Meds_RXNORM, CPT_Codes, ObsrvtnData.Obsrvtn_Array) %>%
   # rename weird column name
   rename(LOINC=ObsrvtnData.Obsrvtn_Array,     # observations (TODO: describe)
@@ -31,9 +35,11 @@ trimesters %>%
          CPT=CPT_Codes,                       # procedures
          ICD10CM=DX_Codes) %>%                # diagnoses
   # we want to use data.table's implementation of "melt"
-  as.data.table %>%
+  as.data.table
+
+trimesters %<>%
   # make long (not wide)
-  melt(id.vars=c("MyLUA_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester"),
+  melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester"),
        variable.name="codesystem",
        value.name="code") %>%
   # separate the array into rows
@@ -46,11 +52,14 @@ trimesters %>%
                              NA_character_)) %>%
   # conditionally fix the codes for LOINCs using regular expressions
   mutate(code = case_when(codesystem=="LOINC" ~ str_replace(code, ":.+$", ""),
-                          TRUE                ~ code)) %>%
+                          TRUE                ~ code))
+
+trimesters %<>%
   # do the join
-  inner_join(valueset, by=c("codesystem", "code")) %>%
+  # inner_join(valueset, by=c("codesystem", "code")) %>%
+  left_join(valueset, by=c("codesystem", "code")) %>%
   # re-order variables
-  select(MyLUA_Index_PatientID,
+  select(MyLua_Index_PatientID,
          MyLua_OBEpisode_ID,
          Trimester,
          vsacname,
@@ -65,19 +74,54 @@ setDT(longform)
 
 longform
 
+# inner join is 17,271 (SO FAR)
+# 3,875 unique patients
+# 4,394 unique pregnencies
+
+# left join is 1,135,144
+# 7,208 patients
+# 8,334 pregnancies
+
+
+## join with demographic data
+demo <- fread("./data/demo.csv") %>%
+  rename(MyLua_Index_PatientID=MyLUA_Index_PatientID)
+
+longform <- longform %>% merge(demo, all.x=TRUE, by="MyLua_Index_PatientID")
+
+longform
+
+
 fwrite(longform, "target/fe-longform.csv")
+
+
+
+
+# mad abortive outcomes. what's going on?
+# oh, I guess it's due to the inner join
+
+
+
+## DO WE WANT TO EXCLUDE ABORTIVE OUTCOMES?!
+
+
+
+
+
+
+
 
 
 ### now wide form
 
 # columns to limit to trimesters 0-3
 dcast(longform[Trimester<=3, ],
-      MyLUA_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
+      MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
       value.var="code",
       fun.aggregate=uniqueN) -> part1
 
 options(warn=1)
-part1 %>% dt_keep_cols(c("MyLUA_Index_PatientID", "MyLua_OBEpisode_ID",
+part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "AbortiveOutcome",
                          "CesareanBirth",  # we have none right now
                          "Diarrhea",
@@ -97,17 +141,70 @@ part1 %>% dt_keep_cols(c("MyLUA_Index_PatientID", "MyLua_OBEpisode_ID",
                          ))
 
 
+
+
 # columns to limit to trimester 4 and after
 dcast(longform[Trimester>=4, ],
-      MyLUA_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
+      MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
       value.var="code",
       fun.aggregate=uniqueN) -> part2
-part2 %>% dt_keep_cols(c("MyLUA_Index_PatientID", "MyLua_OBEpisode_ID",
+part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "AntidepressantMedication",
                          "Depression"))
 
-part1 %>% merge(part2, all=TRUE) -> wideform
+
+
+
+
+## putting together pieces for the wide form
+part1 %>%
+  merge(part2, all=TRUE) %>%
+  merge(demo, all.x=TRUE, by="MyLua_Index_PatientID") -> wideform
 wideform[is.na(wideform)] <- 0
 
+
 fwrite(wideform, "target/fe-wideform.csv")
+
+
+
+
+## preparing model matrix for model building, etc...
+
+modmat <- copy(wideform)
+
+
+race.xwalk <- fread("./support/race-xwalk.csv")
+eth.xwalk <- fread("./support/ethnicity-xwalk.csv", na.strings=c("NA", ""))
+
+modmat %<>%
+  merge(race.xwalk, all.x=TRUE, by="p_race") %>%
+  merge(eth.xwalk, all.x=TRUE, by="p_ethcty")
+
+
+setnames(modmat, "MRTL_STS", "marital_status")
+setnames(modmat, "Sleep Disorders", "SleepDisorders")
+modmat[, marital_status:=tolower(marital_status)]
+
+
+# no AbortiveOutcome?
+modmat <- modmat[AbortiveOutcome<1]
+
+modmat %<>% dt_keep_cols("MyLua_Index_PatientID",
+                         "MyLua_OBEpisode_ID",
+                         "CesareanBirth",
+                         "Diarrhea",
+                         "Hypertension",
+                         "Migraine",
+                         "Pharyngitis",
+                         "Preeclampsia",
+                         "SleepDisorders",
+                         "Vomiting",
+                         "AntidepressantMedication",
+                         "Depression",
+                         "marital_status",
+                         "race",
+                         "hisp_latino_p")
+
+modmat %>% fwrite("./target/model-matrix.csv", sep=",")
+
 

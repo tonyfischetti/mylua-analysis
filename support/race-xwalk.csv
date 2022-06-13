@@ -1,0 +1,18 @@
+p_race,race
+White,white
+Black,black
+Other Race,other
+Patient Declined,other
+Black or African American,black
+Asian,asian
+African American,black
+NULL,other
+Asian Indian,asian
+Chinese,asian
+American Indian or Alaska Native,american-indian
+Native Hawaiian or Other Pacific Islander,pacific-islander
+Pakistani,asian
+Japanese,asian
+Vietnamese,asian
+Burmese,asian
+Filipino,asian

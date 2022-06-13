@@ -15,9 +15,16 @@ require('dotenv').config();
 
 const INPUT_DATA = {};
 
+// INPUT_DATA.TRIMESTER = {
+//   "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-data.csv.gpg",
+//   "MD5": "3cf24f02a41daffa4e18532c98815676",
+//   "LOC": "./data/trimester.csv.gpg",
+//   "DES": "trimester data"
+// };
+
 INPUT_DATA.TRIMESTER = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-data.csv.gpg",
-  "MD5": "3cf24f02a41daffa4e18532c98815676",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-v2-added.csv.gpg",
+  "MD5": "c5765b3d58e04577f675ab3e4a6e1ad2",
   "LOC": "./data/trimester.csv.gpg",
   "DES": "trimester data"
 };

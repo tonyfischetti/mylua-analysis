@@ -1,0 +1,21 @@
+p_ethcty,hisp_latino_p
+Not Hispanic or Latino,FALSE
+Patient Declined,NA
+Hispanic or Latino/Spanish,TRUE
+Puerto Rican,TRUE
+Mexican American,TRUE
+NULL,NA
+"Latin American/Latin, Latino",TRUE
+Mexican,TRUE
+South American,TRUE
+Central American,TRUE
+Dominican,TRUE
+Colombian,TRUE
+Spaniard,TRUE
+Andalusian,TRUE
+Argentinean,TRUE
+Central American Indian,TRUE
+Mexicano,TRUE
+Panamanian,TRUE
+Ecuadorian,TRUE
+Salvadoran,TRUE
