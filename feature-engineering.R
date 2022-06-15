@@ -54,7 +54,7 @@ trimesters %<>%
   mutate(code = case_when(codesystem=="LOINC" ~ str_replace(code, ":.+$", ""),
                           TRUE                ~ code))
 
-trimesters %<>%
+trimesters %>%
   # do the join
   # inner_join(valueset, by=c("codesystem", "code")) %>%
   left_join(valueset, by=c("codesystem", "code")) %>%
@@ -77,6 +77,8 @@ longform
 # inner join is 17,271 (SO FAR)
 # 3,875 unique patients
 # 4,394 unique pregnencies
+## new valueset
+# 20,409 inner join
 
 # left join is 1,135,144
 # 7,208 patients
@@ -107,7 +109,7 @@ fwrite(longform, "target/fe-longform.csv")
 
 
 
-
+longform %>% dt_counts_and_percents("code")
 
 
 
@@ -123,21 +125,20 @@ dcast(longform[Trimester<=3, ],
 options(warn=1)
 part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "AbortiveOutcome",
-                         "CesareanBirth",  # we have none right now
+                         # "AntidepressantMedication",
+                         "Anxiety",
+                         "BetaBlockers",
+                         "CesareanBirth",
+                         # "Depression",
                          "Diarrhea",
-                         "Hypertension", # we have none right now
+                         "Hypertension",
+                         "Hypothyroidism",
                          "Migraine",
+                         "Mood",
                          "Preeclampsia",
                          "Pharyngitis",
-                         "Sleep Disorders",
-                         "Vomiting",
-                         # added valuesets for LOINCS - CB220522
-                         "MYLUA-ANXIETY",
-                         "MYLUA-LOINCTEST",
-                         "MYLUA-MOOD",
-                         "MYLUA-PAIN",
-                         "MYLUA-SDOH",
-                         "MYLUA-SLEEP"
+                         "Sleep",
+                         "Vomiting"
                          ))
 
 
@@ -182,28 +183,16 @@ modmat %<>%
 
 
 setnames(modmat, "MRTL_STS", "marital_status")
-setnames(modmat, "Sleep Disorders", "SleepDisorders")
 modmat[, marital_status:=tolower(marital_status)]
 
 
 # no AbortiveOutcome?
 modmat <- modmat[AbortiveOutcome<1]
 
-modmat %<>% dt_keep_cols("MyLua_Index_PatientID",
-                         "MyLua_OBEpisode_ID",
-                         "CesareanBirth",
-                         "Diarrhea",
-                         "Hypertension",
-                         "Migraine",
-                         "Pharyngitis",
-                         "Preeclampsia",
-                         "SleepDisorders",
-                         "Vomiting",
-                         "AntidepressantMedication",
-                         "Depression",
-                         "marital_status",
-                         "race",
-                         "hisp_latino_p")
+setcolorder(modmat, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
+
+modmat %<>% dt_del_cols("CDC_ETHCTY_CD", "CDC_RACE_CD", "S_ZIP")
+
 
 modmat %>% fwrite("./target/model-matrix.csv", sep=",")
 
