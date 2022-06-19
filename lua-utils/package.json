@@ -1,0 +1,12 @@
+{
+  "author": {
+    "name": "Tony Fischetti"
+  },
+  "name": "lua-utils",
+  "description": "utilities",
+  "license": "MIT",
+  "version": "0.0.1",
+  "main": "./lua-utils.js",
+  "dependencies": {
+  }
+}

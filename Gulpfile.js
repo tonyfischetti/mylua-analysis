@@ -8,6 +8,10 @@ const axios = require("axios");
 const spinner = require("ora-promise")
 const md5 = require("md5");
 const $ = require("shelljs");
+const pgp = require("openpgp");
+const path = require("path");
+
+const lua = require("./lua-utils");
 
 require('dotenv').config();
 
@@ -23,44 +27,44 @@ const INPUT_DATA = {};
 // };
 
 INPUT_DATA.TRIMESTER = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-v2-added.csv.gpg",
-  "MD5": "c5765b3d58e04577f675ab3e4a6e1ad2",
-  "LOC": "./data/trimester.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester.csv.asc",
+  "MD5": "d111e6db9a8c27a789afafdcbf2731c3",
+  "LOC": "./data/trimester.csv.asc",
   "DES": "trimester data"
 };
 
 INPUT_DATA.VALUESET = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.gpg",
-  "MD5": "671409cb1171fa18f25df5f1c4ea4fed",
-  "LOC": "./data/valuesets.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.asc",
+  "MD5": "2af193be72bfa814ef929566a4e24832",
+  "LOC": "./data/valuesets.csv.asc",
   "DES": "valueset crosswalk"
 };
 
 INPUT_DATA.DELIVERY_DATA = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/delivery-data.csv.gpg",
-  "MD5": "4960d82fa00da9ae3484fcb7217d4434",
-  "LOC": "./data/delivery.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/delivery.csv.asc",
+  "MD5": "ab3dc716c4b3b698ef3a06100e3ff791",
+  "LOC": "./data/delivery.csv.asc",
   "DES": "FILL OUT LATER"
 };
 
 INPUT_DATA.DEMO_DATA = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/demo-data.csv.gpg",
-  "MD5": "f20f9d93b7ec639a1b44e92d4604bee3",
-  "LOC": "./data/demo.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/demo.csv.asc",
+  "MD5": "08f3a1e83c3aff9209e7b5d813d688f2",
+  "LOC": "./data/demo.csv.asc",
   "DES": "FILL OUT LATER"
 };
 
 INPUT_DATA.OBS_XWALK = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/obs-xwalk.csv.gpg",
-  "MD5": "f7414dfff45b7146333ae728e7bc838c",
-  "LOC": "./data/obs-walk.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/obs-xwalk.csv.asc",
+  "MD5": "a4f54c0cfb979963c95da642f03a46af",
+  "LOC": "./data/obs-xwalk.csv.asc",
   "DES": "FILL OUT LATER"
 };
 
 INPUT_DATA.SCREENING_DATA = {
-  "URL": "https://mlua.s3.us-east-2.amazonaws.com/screening.csv.gpg",
-  "MD5": "e6253eabae8828ebb9e69da91b7ee203",
-  "LOC": "./data/screening.csv.gpg",
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/screening.csv.asc",
+  "MD5": "ab0b9c9c02a4de269fffc199bcf9a280",
+  "LOC": "./data/screening.csv.asc",
   "DES": "FILL OUT LATER!"
 };
 
@@ -103,7 +107,7 @@ const downloadTrimesterData = (cb)  => downloadADatum(cb, INPUT_DATA.TRIMESTER);
 const downloadValuesetData = (cb)   => downloadADatum(cb, INPUT_DATA.VALUESET);
 const downloadDeliveryData = (cb)   => downloadADatum(cb, INPUT_DATA.DELIVERY_DATA);
 const downloadDemoData = (cb)       => downloadADatum(cb, INPUT_DATA.DEMO_DATA);
-const downloadObsXwalk = (cb)       => downloadADatum(cb, INPUT_DATA.OBS_XWALK);
+const downloadObsXWalk = (cb)       => downloadADatum(cb, INPUT_DATA.OBS_XWALK);
 const downloadScreeningData = (cb)  => downloadADatum(cb, INPUT_DATA.SCREENING_DATA);
 
 
@@ -129,7 +133,7 @@ const checkTrimesterData = (cb)  => checkADatum(cb, INPUT_DATA.TRIMESTER);
 const checkValuesetData = (cb)   => checkADatum(cb, INPUT_DATA.VALUESET);
 const checkDeliveryData = (cb)   => checkADatum(cb, INPUT_DATA.DELIVERY_DATA);
 const checkDemoData = (cb)       => checkADatum(cb, INPUT_DATA.DEMO_DATA);
-const checkObsXwalk = (cb)       => checkADatum(cb, INPUT_DATA.OBS_XWALK);
+const checkObsXWalk = (cb)       => checkADatum(cb, INPUT_DATA.OBS_XWALK);
 const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
 
 
@@ -141,14 +145,12 @@ const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
  */
 
 const decryptFiles = (cb) => {
-  const all = $.ls("data/*.gpg");
-  all.map(filename => {
-    $.exec(`echo ${process.env.GPGPASS} | gpg --batch --yes --passphrase-fd 0 ${filename}`);
-  });
-  // $.exec(`echo ${process.env.GPGPASS} > hi`);
-  return cb();
+  Promise.resolve().
+    then(() => lua.decryptFile("./data/valuesets.csv.asc", process.env.GPGPASS)).
+    then(() => lua.decryptFile("./data/trimester.csv.asc",  process.env.GPGPASS)).
+    then(() => lua.decryptFile("./data/demo.csv.asc",  process.env.GPGPASS)).
+    then(() => cb());
 };
-
 
 
 /* ---------------------------------------------------------------
@@ -193,18 +195,19 @@ const mrproper = (cb) => {
 exports.clean     = mrproper;
 exports.setup     = setupDirs;
 
-exports.download  = parallel(downloadTrimesterData,
-                             downloadValuesetData,
-                             downloadDeliveryData,
-                             downloadDemoData,
-                             downloadObsXwalk,
-                             downloadScreeningData);
+exports.download  = series(exports.setup,
+                           parallel(downloadTrimesterData,
+                                    downloadValuesetData,
+                                    downloadDeliveryData,
+                                    downloadDemoData,
+                                    downloadObsXWalk,
+                                    downloadScreeningData));
 
 exports.check  = parallel(checkTrimesterData,
                           checkValuesetData,
                           checkDeliveryData,
                           checkDemoData,
-                          checkObsXwalk,
+                          checkObsXWalk,
                           checkScreeningData);
 
 exports.decrypt   = decryptFiles;
