@@ -8,8 +8,6 @@ const axios = require("axios");
 const spinner = require("ora-promise")
 const md5 = require("md5");
 const $ = require("shelljs");
-const pgp = require("openpgp");
-const path = require("path");
 
 const lua = require("./lua-utils");
 
@@ -19,12 +17,6 @@ require('dotenv').config();
 
 const INPUT_DATA = {};
 
-// INPUT_DATA.TRIMESTER = {
-//   "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester-data.csv.gpg",
-//   "MD5": "3cf24f02a41daffa4e18532c98815676",
-//   "LOC": "./data/trimester.csv.gpg",
-//   "DES": "trimester data"
-// };
 
 INPUT_DATA.TRIMESTER = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/trimester.csv.asc",
@@ -190,6 +182,8 @@ const mrproper = (cb) => {
  * the "download" target doesn't have to be "series" (as opposed
  * to "parallel") but there's a race condition in TTY output if
  * it's not "series"
+ *
+ * But it looks like I changed it back?
  */
 
 exports.clean     = mrproper;
