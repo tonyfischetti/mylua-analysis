@@ -145,7 +145,7 @@ const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
  */
 
 const decryptFiles = (cb) => {
-  Promise.resolve().
+  return Promise.resolve().
     then(() => lua.decryptFile("./data/valuesets.csv.asc", process.env.GPGPASS)).
     then(() => lua.decryptFile("./data/trimester.csv.asc",  process.env.GPGPASS)).
     then(() => lua.decryptFile("./data/demo.csv.asc",  process.env.GPGPASS)).
@@ -162,7 +162,7 @@ const decryptFiles = (cb) => {
 
 const doFeatureEngineering = (cb) => {
   $.exec("R_LIBS='~/local/R_libs' Rscript feature-engineering.R");
-  cb();
+  return cb();
 };
 
 
@@ -180,7 +180,7 @@ const doFeatureEngineering = (cb) => {
 const mrproper = (cb) => {
   $.rm("-rf", "data")
   $.rm("-rf", "target")
-  cb();
+  return cb();
 };
 
 /* --------------------------------------------------------------- */
