@@ -40,44 +40,44 @@ dt_apply_fun_to_cols_matching_predicate_in_place <- function(DT, fun, predicate)
 
 # --------------------------------------------------------------- #
 
-myscale <- function(x){ (x-mean(x,na.rm=TRUE))/sd(x, na.rm=TRUE) }
 
 
 
-
-dat <- fread("./target/model-matrix.csv")
-
+dat <- fread("./target/fe-wideform.csv")
 
 
-dat[, deptarget:=(AntidepressantMedication+Depression)>0]
+
+dat[, deptarget:=Depression>0]
 
 dat %>% dt_counts_and_percents("deptarget")
-# 15% have depression target
+# 27% have depression target
 
 
 dat[, uniqueN(MyLua_OBEpisode_ID)]
 dat[, .N]
 
-# so this treats every OB episode as independent
+# NOTE: so this treats every OB episode as independent (bad)
 
 dat %>% dt_del_cols("MyLua_Index_PatientID",
-                    "AntidepressantMedication",
-                    "Depression",
-                    "MyLua_OBEpisode_ID" ## ??
+                    # "AntidepressantMedication",
+                    "Depression"
+                    # "MyLua_OBEpisode_ID" ## ??
                     )
 
 setcolorder(dat, "deptarget")
 
 
-make_bool <- function(x) ifelse(x>0, 1, x)
+make_bool     <- function(x) ifelse(x>0, 1, x)
+make_logical  <- function(x) ifelse(x>0, TRUE, FALSE)
 
 
+dat <- dat[complete.cases(dat), ]
 dat1 <- copy(dat)
-dat1 <- dat1[complete.cases(dat1), ]
 dat2 <- copy(dat)
-dat2 <- dat2[complete.cases(dat2), ]
+dat3 <- copy(dat)
 
 dt_apply_fun_to_col_pattern_in_place(dat1, make_bool, "^[A-Z]")
+dt_apply_fun_to_col_pattern_in_place(dat2, make_logical, "^[A-Z]")
 
 
 
@@ -91,37 +91,25 @@ library(randomForest)
 
 
 
-dat <- copy(dat2)
+
+
 
 # --------------------------------------------------------------- #
-#> ridge, no pre-processing
+#> random forest
 
-X <- model.matrix(deptarget ~ ., data=dat)[, -1]
-y <- as.matrix(dat[, 1]+0)
+this <- copy(dat1)
 
-fit <- glmnet(X, y, family="binomial")
-plot(fit)
+# make race a factor
+this[, race:=as.factor(race)]
+this[, deptarget:=as.factor(deptarget)]
 
-cvfit <- cv.glmnet(X, y, alpha=0, standardize=FALSE, family="binomial")
-plot(cvfit)
+forest <- randomForest(deptarget ~ ., data=this)
 
-preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
-preds <- as.matrix(fifelse(preds>.5, 1, 0))
+preds <- predict(forest, newdata=this)
 
-confusionMatrix(factor(y, levels=c(1, 0)), factor(preds, levels=c(1, 0)))
+accuracy(preds, this[, deptarget])
 
-preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
-preds <- fifelse(preds>.5, 1, 0)
-accuracy(preds, y)
-
-# 85% accuracy
-
-# --------------------------------------------------------------- #
-
-# --------------------------------------------------------------- #
-#> lasso, no pre-processing
-
-# same results as ridge
+# 79%
 
 # --------------------------------------------------------------- #
 
@@ -129,8 +117,52 @@ accuracy(preds, y)
 # --------------------------------------------------------------- #
 #> random forest
 
-bkDat <- copy(dat)
-dat <- copy(bkDat)
+this <- copy(dat2)
+
+# make race a factor
+this[, race:=as.factor(race)]
+this[, deptarget:=as.factor(deptarget)]
+
+forest <- randomForest(deptarget ~ ., data=this)
+
+preds <- predict(forest, newdata=this)
+
+accuracy(preds, this[, deptarget])
+
+# 79%
+
+# --------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------- #
+#> random forest
+
+this <- copy(dat3)
+
+# make race a factor
+this[, race:=as.factor(race)]
+this[, deptarget:=as.factor(deptarget)]
+
+forest <- randomForest(deptarget ~ ., data=this)
+
+preds <- predict(forest, newdata=this)
+
+accuracy(preds, this[, deptarget])
+
+# 94%
+
+# --------------------------------------------------------------- #
+
+
+
+
+
+
+
+
+
+
+this <- copy(dat)
 
 # make race a factor
 dat[, race:=as.factor(race)]
@@ -142,9 +174,15 @@ preds <- predict(forest, newdata=dat)
 
 accuracy(preds, dat[, deptarget])
 
-# 85%
 
-# --------------------------------------------------------------- #
+
+
+
+
+
+
+
+
 
 
 

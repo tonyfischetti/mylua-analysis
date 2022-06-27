@@ -15,20 +15,29 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 library(libbib)
+library(epitools)
+
+
+# --------------------------------------------------------------- #
 
 valueset <- fread("./data/valuesets.csv", na.strings=c("", "NULL")) %>%
   select(vsacname, codesystem, code, description)
 
 valueset
 
-trimesters <- fread("./data/trimester.csv")
+trimesters <- fread("./data/trimester.csv", na.strings=c("", "NULL"))
 
+
+# --------------------------------------------------------------- #
 
 trimesters %<>%
   ### just the necessary columns, for demonstration
-  rename(MyLua_Index_PatientID=MyLUA_Index_PatientID) %>%
-  select(MyLua_Index_PatientID, MyLua_OBEpisode_ID, Trimester, DX_Codes,
+  rename(MyLua_Index_PatientID=MyLUA_Index_PatientID,
+         Age=Age_at_Trimester) %>%
+  select(MyLua_Index_PatientID, MyLua_OBEpisode_ID, Trimester, Age, DX_Codes,
          Meds_RXNORM, CPT_Codes, ObsrvtnData.Obsrvtn_Array) %>%
+  # remove the patient ID from the episode ID
+  mutate(MyLua_OBEpisode_ID=as.integer(str_replace(MyLua_OBEpisode_ID, "^\\d+-", ""))) %>%
   # rename weird column name
   rename(LOINC=ObsrvtnData.Obsrvtn_Array,     # observations (TODO: describe)
          RXNORM=Meds_RXNORM,                  # medicines
@@ -39,12 +48,11 @@ trimesters %<>%
 
 trimesters %<>%
   # make long (not wide)
-  melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester"),
+  melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester", "Age"),
        variable.name="codesystem",
        value.name="code") %>%
   # separate the array into rows
   separate_rows(code, sep="; ") %>%
-  # unnecessary, as we'll do an inner join
   filter(!is.na(code)) %>%
   # extract the LOINC value
   mutate(loincvalue = ifelse(codesystem=="LOINC",
@@ -56,12 +64,13 @@ trimesters %<>%
 
 trimesters %>%
   # do the join
-  # inner_join(valueset, by=c("codesystem", "code")) %>%
-  left_join(valueset, by=c("codesystem", "code")) %>%
+  inner_join(valueset, by=c("codesystem", "code")) %>%
+  # left_join(valueset, by=c("codesystem", "code")) %>%
   # re-order variables
   select(MyLua_Index_PatientID,
          MyLua_OBEpisode_ID,
          Trimester,
+         Age,
          vsacname,
          codesystem,
          code,
@@ -74,15 +83,13 @@ setDT(longform)
 
 longform
 
-# inner join is 17,271 (SO FAR)
-# 3,875 unique patients
-# 4,394 unique pregnencies
-## new valueset
-# 20,409 inner join
 
-# left join is 1,135,144
-# 7,208 patients
-# 8,334 pregnancies
+## exclude abortive outcomes
+longform <- longform[vsacname!="AbortiveOutcome",]
+
+# 2022-06-27
+longform[, uniqueN(MyLua_Index_PatientID)]                              # 3,694
+longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 4,148
 
 
 ## join with demographic data
@@ -97,39 +104,28 @@ longform
 fwrite(longform, "target/fe-longform.csv")
 
 
-
-
-# mad abortive outcomes. what's going on?
-# oh, I guess it's due to the inner join
-
-
-
-## DO WE WANT TO EXCLUDE ABORTIVE OUTCOMES?!
-
-
-
-
-longform %>% dt_counts_and_percents("code")
-
-
+# --------------------------------------------------------------- #
 
 
 ### now wide form
 
-# columns to limit to trimesters 0-3
+## first get the ages
+longform[, .(Age=min(Age)), .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> ages
+setkey(ages,"MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
+
+
+## columns to limit to trimesters 0-3
 dcast(longform[Trimester<=3, ],
       MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
       value.var="code",
       fun.aggregate=uniqueN) -> part1
 
-options(warn=1)
 part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
-                         "AbortiveOutcome",
-                         # "AntidepressantMedication",
+                         "AntidepressantMedication",
                          "Anxiety",
                          "BetaBlockers",
                          "CesareanBirth",
-                         # "Depression",
+                         "Depression",
                          "Diarrhea",
                          "Hypertension",
                          "Hypothyroidism",
@@ -137,63 +133,100 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Mood",
                          "Preeclampsia",
                          "Pharyngitis",
-                         "Sleep",
-                         "Vomiting"
-                         ))
+                         "Sleep"))
+
+part1[, PrenatalDepressionInd:=AntidepressantMedication+Depression]
+part1[, Depression:=NULL]
+part1[, AntidepressantMedication:=NULL]
 
 
 
 
-# columns to limit to trimester 4 and after
+## columns to limit to trimester 4 and after
 dcast(longform[Trimester>=4, ],
       MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
       value.var="code",
       fun.aggregate=uniqueN) -> part2
 part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
+                         "Sleep",
                          "AntidepressantMedication",
                          "Depression"))
-
-
-
-
-
-## putting together pieces for the wide form
-part1 %>%
-  merge(part2, all=TRUE) %>%
-  merge(demo, all.x=TRUE, by="MyLua_Index_PatientID") -> wideform
-wideform[is.na(wideform)] <- 0
-
-
-fwrite(wideform, "target/fe-wideform.csv")
-
-
-
-
-## preparing model matrix for model building, etc...
-
-modmat <- copy(wideform)
+# part2[, DepressionTarget:=Depression+AntidepressantMedication]
+# part2[, Depression:=NULL]
+# part2[, AntidepressantMedication:=NULL]
+## NOTE: I don't think (for POST delivery) we should consider antidepressant
+## use as a sign of depression
+setnames(part2, "Sleep", "PostnatalSleep")
 
 
 race.xwalk <- fread("./support/race-xwalk.csv")
 eth.xwalk <- fread("./support/ethnicity-xwalk.csv", na.strings=c("NA", ""))
 
-modmat %<>%
+## putting together pieces for the wide form
+ages %>%
+  merge(part1) %>%
+  merge(part2) %>%
+  merge(demo, all.x=TRUE, by="MyLua_Index_PatientID") %>%
   merge(race.xwalk, all.x=TRUE, by="p_race") %>%
-  merge(eth.xwalk, all.x=TRUE, by="p_ethcty")
+  merge(eth.xwalk, all.x=TRUE, by="p_ethcty") -> wideform
 
 
-setnames(modmat, "MRTL_STS", "marital_status")
-modmat[, marital_status:=tolower(marital_status)]
+setnames(wideform, "MRTL_STS", "marital_status")
+wideform[, marital_status:=tolower(marital_status)]
+
+setcolorder(wideform, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
+
+wideform %<>% dt_del_cols("CDC_ETHCTY_CD", "CDC_RACE_CD", "S_ZIP",
+                          "p_ethcty", "p_race")
 
 
-# no AbortiveOutcome?
-modmat <- modmat[AbortiveOutcome<1]
+fwrite(wideform, "target/fe-wideform.csv")
 
-setcolorder(modmat, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
+# --------------------------------------------------------------- #
 
-modmat %<>% dt_del_cols("CDC_ETHCTY_CD", "CDC_RACE_CD", "S_ZIP")
+## multiple birth
+
+wideform[,.N]
+wideform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN
+wideform[, .(MyLua_Index_PatientID)] %>% uniqueN
+
+wideform[MyLua_OBEpisode_ID>1, .(MyLua_Index_PatientID)] -> morethanone
+
+wideform[MyLua_OBEpisode_ID==1] %>%
+  merge(morethanone, by="MyLua_Index_PatientID") -> tmp
+
+tmp[, .N, Depression>0]
+
+# 34% of patients with more than one birth had postpartum depression
+# in their first pregnancy!
+
+tmp[Depression>0, .(MyLua_Index_PatientID)] -> morethanonewithppdinfirst
+
+morethanonewithppdinfirst
+
+morethanonewithppdinfirst %>%
+  merge(wideform[MyLua_OBEpisode_ID>1], by="MyLua_Index_PatientID") -> tmp
+
+tmp[, .N, Depression>0]
+
+# 62% of those with ppd in the first birth had it in subsequent birth (kindof)
+
+wideform[, .N, Depression>0]
+
+# compared to only 27% percent for everyone
+
+wideform[!(MyLua_Index_PatientID %in% morethanone[, MyLua_Index_PatientID]), .N, Depression>0]
+
+# and 25% of those with only one birth
+
+## TODO: so we have to add an indicator for this
+
+# --------------------------------------------------------------- #
+
+## odds ratio
+
+# wideform[, .N, .(hisp_latino_p, DepressionTarget>0)] %>%
 
 
-modmat %>% fwrite("./target/model-matrix.csv", sep=",")
 
 
