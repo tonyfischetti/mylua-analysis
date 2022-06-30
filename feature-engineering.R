@@ -84,8 +84,72 @@ setDT(longform)
 longform
 
 
+# --------------------------------------------------------------- #
+# --------------------------------------------------------------- #
+
+# set up for features that indicate prior events
+
+setkey(longform, "MyLua_Index_PatientID")
+
+setorder(longform, MyLua_Index_PatientID, MyLua_OBEpisode_ID)
+
+longform[vsacname %chin% c("Depression", "AntidepressantMedication"),
+         .(MyLua_Index_PatientID,
+           FirstDepressionInd=MyLua_OBEpisode_ID)][
+         !duplicated(MyLua_Index_PatientID)] -> priordep
+
+longform[vsacname=="AbortiveOutcome",
+         .(MyLua_Index_PatientID,
+           FirstAbortedInd=MyLua_OBEpisode_ID)][
+         !duplicated(MyLua_Index_PatientID)] -> priorabor
+
+## TODO: what if trimester > 3 bleeds into another episodeID??!
+longform[MyLua_Index_PatientID==1812 & MyLua_OBEpisode_ID==1]
+
+setkey(priordep, "MyLua_Index_PatientID")
+setkey(priorabor, "MyLua_Index_PatientID")
+
+longform %<>%
+  merge(priordep, all.x=TRUE) %>%
+  merge(priorabor, all.x=TRUE)
+
+longform[vsacname %chin% c("Depression", "AntidepressantMedication"), ]
+longform[vsacname=="AbortiveOutcome"]
+
+# --------------------------------------------------------------- #
+# --------------------------------------------------------------- #
+
+
+longform[vsacname=="AbortiveOutcome" & !is.na(FirstAbortedInd) &
+         MyLua_OBEpisode_ID > FirstAbortedInd]
+
+longform[, .(noabortedoutcome=!("AbortiveOutcome" %chin% vsacname)),
+         .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)][noabortedoutcome==TRUE] -> tmp
+setkey(tmp, "MyLua_Index_PatientID")
+tmp %>% merge(priorabor)
+tmp %>% merge(priorabor) -> garb
+garb[MyLua_OBEpisode_ID==FirstAbortedInd]
+longform[MyLua_Index_PatientID==1796]
+
+
 ## exclude abortive outcomes
-longform <- longform[vsacname!="AbortiveOutcome",]
+## TODO: should we _really_ be removing aborted episodes?
+
+longform[, "AbortiveOutcome" %chin% vsacname,
+         .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)][
+         V1==TRUE] -> abortiveepisodes
+abortiveepisodes[, V1:=NULL]
+
+setkey(longform, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
+setkey(abortiveepisodes, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
+
+longform[!abortiveepisodes] -> longform
+
+
+
+# 2022-06-30
+longform[, uniqueN(MyLua_Index_PatientID)]                              # 3,368
+longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 3,707
 
 # 2022-06-27
 longform[, uniqueN(MyLua_Index_PatientID)]                              # 3,694
@@ -149,7 +213,7 @@ dcast(longform[Trimester>=4, ],
       fun.aggregate=uniqueN) -> part2
 part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Sleep",
-                         "AntidepressantMedication",
+                         # "AntidepressantMedication",
                          "Depression"))
 # part2[, DepressionTarget:=Depression+AntidepressantMedication]
 # part2[, Depression:=NULL]
@@ -166,6 +230,8 @@ eth.xwalk <- fread("./support/ethnicity-xwalk.csv", na.strings=c("NA", ""))
 ages %>%
   merge(part1) %>%
   merge(part2) %>%
+  merge(priordep, all.x=TRUE) %>%
+  merge(priorabor, all.x=TRUE) %>%
   merge(demo, all.x=TRUE, by="MyLua_Index_PatientID") %>%
   merge(race.xwalk, all.x=TRUE, by="p_race") %>%
   merge(eth.xwalk, all.x=TRUE, by="p_ethcty") -> wideform
@@ -178,6 +244,20 @@ setcolorder(wideform, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
 
 wideform %<>% dt_del_cols("CDC_ETHCTY_CD", "CDC_RACE_CD", "S_ZIP",
                           "p_ethcty", "p_race")
+
+wideform
+wideform[, PriorDepressionInd:=FALSE]
+wideform[, PriorAbortiveOutcome:=FALSE]
+wideform[FirstDepressionInd<MyLua_OBEpisode_ID, PriorDepressionInd:=TRUE]
+wideform[FirstAbortedInd<MyLua_OBEpisode_ID, PriorAbortiveOutcome:=TRUE]
+
+wideform %>% names
+wideform %>% dt_del_cols("FirstDepressionInd", "FirstAbortedInd")
+
+
+## now some derived features (that might help)
+wideform[, NonMinority:=FALSE]
+wideform[race=="white" & hisp_latino_p==FALSE, NonMinority:=TRUE]
 
 
 fwrite(wideform, "target/fe-wideform.csv")
@@ -228,5 +308,6 @@ wideform[!(MyLua_Index_PatientID %in% morethanone[, MyLua_Index_PatientID]), .N,
 # wideform[, .N, .(hisp_latino_p, DepressionTarget>0)] %>%
 
 
+# TODO: ABORTIVE OUTCOME INDICATOR
 
 
