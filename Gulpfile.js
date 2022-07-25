@@ -147,13 +147,17 @@ const decryptFiles = (cb) => {
 
 /* ---------------------------------------------------------------
  *
- * This are the targets that download the data sources
- * and place them in `./data`
+ * These are the targets that prepare the data
  *
  */
 
-const doFeatureEngineering = (cb) => {
-  $.exec("R_LIBS='~/local/R_libs' Rscript feature-engineering.R");
+const doMakeLong = (cb) => {
+  $.exec("R_LIBS='~/local/R_libs' Rscript 1-make-long.R");
+  return cb();
+};
+
+const doMakeWide = (cb) => {
+  $.exec("R_LIBS='~/local/R_libs' Rscript 2-make-wide.R");
   return cb();
 };
 
@@ -205,7 +209,9 @@ exports.check  = parallel(checkTrimesterData,
                           checkScreeningData);
 
 exports.decrypt   = decryptFiles;
-exports.analyze   = doFeatureEngineering;
+
+exports.analyze   = series(doMakeLong,
+                           doMakeWide);
 
 exports.default   = series(exports.setup,
                            exports.download,
