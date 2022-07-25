@@ -73,6 +73,8 @@ INPUT_DATA.SCREENING_DATA = {
 const setupDirs = (cb) => {
   $.mkdir("-p", "data");
   $.mkdir("-p", "target");
+  $.mkdir("-p", "trimester-separation/wides");
+  $.mkdir("-p", "trimester-separation/results");
   return cb();
 };
 
@@ -162,6 +164,19 @@ const doMakeWide = (cb) => {
 };
 
 
+const doSeperateTrimestersWide = (cb) => {
+  [...Array(9).keys()].map(ind => {
+    $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/1-make-wides.R ${ind}`);
+  });
+  return cb();
+};
+
+const doSeperateTrimestersXgboost = (cb) => {
+  $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-xgboost.R`);
+  return cb();
+};
+
+
 /* ---------------------------------------------------------------
  *
  * Finally, this is a target that cleans the generated directories
@@ -176,6 +191,8 @@ const doMakeWide = (cb) => {
 const mrproper = (cb) => {
   $.rm("-rf", "data")
   $.rm("-rf", "target")
+  $.rm("-rf", "trimester-separation/wides");
+  $.rm("-rf", "trimester-separation/results");
   return cb();
 };
 
@@ -210,8 +227,13 @@ exports.check  = parallel(checkTrimesterData,
 
 exports.decrypt   = decryptFiles;
 
+exports.separate = doSeperateTrimestersWide;
+
 exports.analyze   = series(doMakeLong,
-                           doMakeWide);
+                           doMakeWide,
+                           doSeperateTrimestersWide,
+                           doSeperateTrimestersXgboost);
+
 
 exports.default   = series(exports.setup,
                            exports.download,

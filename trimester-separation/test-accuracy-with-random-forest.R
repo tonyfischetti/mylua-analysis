@@ -17,10 +17,6 @@ library(stringr)
 library(libbib)
 library(caret)
 library(xgboost)
-library(here)
-
-
-setwd(here("trimester-separation"))
 
 set.seed(2)
 
@@ -29,7 +25,8 @@ set.seed(2)
 
 # library(glmnet)
 # library(rfUtilities)
-# library(randomForest)
+
+library(randomForest)
 
 # --------------------------------------------------------------- #
 
@@ -38,6 +35,8 @@ set.seed(2)
 
 
 
+
+dat
 
 
 do.it <- function(trime){
@@ -87,8 +86,8 @@ do.it <- function(trime){
 # print(importance_matrix)
 # xgb.plot.importance(importance_matrix = importance_matrix)
 
-0:8 %>%
-  lapply(do.it) %>%
-  rbindlist %>%
-  fwrite("./results/xgboost.csv")
+
+do.it(0)
+do.it(1)
+do.it(2)
 

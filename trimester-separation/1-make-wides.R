@@ -17,6 +17,9 @@ library(stringr)
 library(libbib)
 library(epitools)
 
+library(here)
+
+setwd(here("trimester-separation"))
 
 args <- commandArgs(trailingOnly=TRUE)
 trime <- as.integer(args[1])
