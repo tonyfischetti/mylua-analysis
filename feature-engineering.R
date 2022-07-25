@@ -18,12 +18,16 @@ library(libbib)
 library(epitools)
 
 
+
+
 # --------------------------------------------------------------- #
 
 valueset <- fread("./data/valuesets.csv", na.strings=c("", "NULL")) %>%
   select(vsacname, codesystem, code, description)
 
 valueset
+
+  valueset[codesystem=="ICD10CM", code:=str_replace_all(code, "\\.", "")]
 
 trimesters <- fread("./data/trimester.csv", na.strings=c("", "NULL"))
 
@@ -61,6 +65,10 @@ trimesters %<>%
   # conditionally fix the codes for LOINCs using regular expressions
   mutate(code = case_when(codesystem=="LOINC" ~ str_replace(code, ":.+$", ""),
                           TRUE                ~ code))
+
+setDT(trimesters)
+trimesters[codesystem=="ICD10CM"]
+trimesters[codesystem=="ICD10CM", code:=str_replace_all(code, "\\.", "")]
 
 trimesters %>%
   # do the join
@@ -146,6 +154,9 @@ setkey(abortiveepisodes, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
 longform[!abortiveepisodes] -> longform
 
 
+# 2022-07-18
+longform[, uniqueN(MyLua_Index_PatientID)]                              # 5,155
+longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 5,753
 
 # 2022-06-30
 longform[, uniqueN(MyLua_Index_PatientID)]                              # 3,368
@@ -173,6 +184,10 @@ fwrite(longform, "target/fe-longform.csv")
 
 ### now wide form
 
+
+# quick fix
+longform[vsacname=="Cesarean", vsacname:="CesareanBirth"]
+
 ## first get the ages
 longform[, .(Age=min(Age)), .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> ages
 setkey(ages,"MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
@@ -184,20 +199,27 @@ dcast(longform[Trimester<=3, ],
       value.var="code",
       fun.aggregate=uniqueN) -> part1
 
+# TODO: use "MOOD", too?
+
 part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "AntidepressantMedication",
+                         "UncomplicatedBirth",
                          "Anxiety",
-                         "BetaBlockers",
-                         "CesareanBirth",
-                         "Depression",
-                         "Diarrhea",
                          "Hypertension",
-                         "Hypothyroidism",
+                         "Depression",
+                         "BetaBlockers",
+                         "Vomiting",
+                         "CesareanBirth",
                          "Migraine",
-                         "Mood",
                          "Preeclampsia",
                          "Pharyngitis",
-                         "Sleep"))
+                         "Sleep",
+                         "Complication-FetalStress",
+                         "Diarrhea",
+                         "Mood",
+                         "Complication-BloodOxygen",
+                         "Hypothyroidism"
+                         ))
 
 part1[, PrenatalDepressionInd:=AntidepressantMedication+Depression]
 part1[, Depression:=NULL]
@@ -226,6 +248,8 @@ setnames(part2, "Sleep", "PostnatalSleep")
 race.xwalk <- fread("./support/race-xwalk.csv")
 eth.xwalk <- fread("./support/ethnicity-xwalk.csv", na.strings=c("NA", ""))
 
+
+##!! TODO: make sure you don't lose records !!@@@@@@@@@@@@@@@@@@@@@@@
 ## putting together pieces for the wide form
 ages %>%
   merge(part1) %>%

@@ -45,16 +45,20 @@ dt_apply_fun_to_cols_matching_predicate_in_place <- function(DT, fun, predicate)
 
 dat <- fread("./target/fe-wideform.csv")
 
+setnames(dat, "Complication-FetalStress", "ComplicationFetalStress")
+setnames(dat, "Complication-BloodOxygen", "ComplicationBloodOxygen")
 
 
 dat[, deptarget:=Depression>0]
 
 dat %>% dt_counts_and_percents("deptarget")
-# 26% have depression target
+# old # 26% have depression target
+# 18% have depression target
 
 
 dat[, uniqueN(MyLua_OBEpisode_ID)]
 dat[, .N]
+# 2022-07-18: 1,877
 
 # NOTE: so this treats every OB episode as independent (bad)
 
@@ -128,7 +132,7 @@ forest
 perform <- function(aseed){
   set.seed(aseed)
   trainIndex <- createDataPartition(this$deptarget, p = .8,
-                                    list = FALSE, 
+                                    list = FALSE,
                                     times = 1)
   trainD <- this[trainIndex,]
   testD <- this[-trainIndex,]
@@ -137,9 +141,10 @@ perform <- function(aseed){
   return(data.table(theseed=aseed, pcc=accuracy(preds, testD[, deptarget])$PCC))
 }
 
-1:100 %>% lapply(perform) %>% rbindlist -> dark
+1:10 %>% lapply(perform) %>% rbindlist -> dark
 dark[order(-pcc)]
-# 9 (and .9) is 76%
+# old # 9 (and .9) is 76%
+# 1 is 82%
 
 
 
@@ -172,22 +177,40 @@ train(deptarget ~ ., data=this,
       tuneGrid=tunegrid,
       trControl=control)
 
+## old
+  # Random Forest
+  #
+  # 1272 samples
+  #   19 predictor
+  #    2 classes: 'no', 'yes'
+  #
+  # No pre-processing
+  # Resampling: Cross-Validated (10 fold, repeated 3 times)
+  # Summary of sample sizes: 1146, 1146, 1145, 1144, 1144, 1145, ...
+  # Resampling results:
+  #
+  #   Accuracy  Kappa
+  #   0.721722  0.07101505
+  #
+  # Tuning parameter 'mtry' was held constant at a value of 4.358899
+
+
+
 # Random Forest
 #
-# 1272 samples
-#   19 predictor
+# 1732 samples
+#   25 predictor
 #    2 classes: 'no', 'yes'
 #
 # No pre-processing
-# Resampling: Cross-Validated (10 fold, repeated 3 times)
-# Summary of sample sizes: 1146, 1146, 1145, 1144, 1144, 1145, ...
+# Resampling: Cross-Validated (30 fold, repeated 1 times)
+# Summary of sample sizes: 1674, 1674, 1674, 1675, 1675, 1675, ...
 # Resampling results:
 #
-#   Accuracy  Kappa
-#   0.721722  0.07101505
+#   Accuracy   Kappa
+#   0.8123614  0.03816753
 #
-# Tuning parameter 'mtry' was held constant at a value of 4.358899
-
+# Tuning parameter 'mtry' was held constant at a value of 5
 
 
 
@@ -373,7 +396,7 @@ this <- copy(dat3)
 perform <- function(aseed){
   set.seed(aseed)
   trainIndex <- createDataPartition(this$deptarget, p = .8,
-                                    list = FALSE, 
+                                    list = FALSE,
                                     times = 1)
   trainD <- this[trainIndex,]
   testD <- this[-trainIndex,]
@@ -387,42 +410,71 @@ dark[order(-pcc)]
 # 9 (and .9) is 76%
 
 
-model <- glm(deptarget ~ ., family=binomial(link='logit'), data=this)
+
+
+
+model <- glm(deptarget ~ ., family=binomial(link='logit'), data=dat)
 model
 summary(model)
 anova(model, test="Chisq")
 
-preds <- predict(model, newdata=this, type='response')
-preds <- ifelse(preds > 0.5, TRUE, FALSE)
-accuracy(preds, this[, deptarget])$PCC
+preds <- predict(model, newdata=dat, type='response')
+# preds <- ifelse(preds > 0.5, TRUE, FALSE)
+
+library(ROCR)
+pr <- prediction(preds, dat$deptarget)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+
+
+
+
+
+dat[, PrenatalDepressionInd:=ifelse(PrenatalDepressionInd>0, TRUE, FALSE)]
 
 
 
 perform <- function(DT, aseed){
   set.seed(aseed)
   trainIndex <- createDataPartition(DT$deptarget, p = .8,
-                                    list = FALSE, 
+                                    list = FALSE,
                                     times = 1)
   trainD <- DT[trainIndex,]
   testD <- DT[-trainIndex,]
+  print(head(testD))
   model <- glm(deptarget ~ ., family=binomial(link='logit'), data=trainD)
+  print(anova(model, test="Chisq"))
   preds <- predict(model, newdata=testD, type='response')
   preds <- ifelse(preds > 0.5, TRUE, FALSE)
   return(accuracy(preds, testD[, deptarget])$PCC)
 }
 
 
-perform(this[, .(deptarget, PrenatalDepressionInd)], 1)
-perform(this[, .(deptarget,
-                 PrenatalDepressionInd,
-                 Age
-                 )], 1)
-perform(this[, .(deptarget,
-                 PrenatalDepressionInd,
-                 Age,
-                 Anxiety
-                 )], 1)
+perform(dat[, .(deptarget, PrenatalDepressionInd)], 1)
+perform(dat[, .(deptarget,
+                PrenatalDepressionInd,
+                Age
+                )], 1)
+perform(dat[, .(deptarget,
+                PrenatalDepressionInd,
+                Age,
+                Anxiety
+                )], 1)
+perform(dat[, .(deptarget,
+                PrenatalDepressionInd,
+                Age,
+                Anxiety,
+                NonMinority
+                )], 1)
+perform(dat, 1)
+perform(dat2, 1)
 
+# 82%
 
 
 PrenatalDepressionInd  1  23.1246      1105     1245.6 0.000001518 ***
@@ -449,4 +501,60 @@ marital_status         5   9.1138      1099     1232.5    0.104609
 race                   4   5.6845      1095     1226.8    0.223980
 hisp_latino_p          1   0.0207      1094     1226.8    0.885687
 PriorDepressionInd     1   0.0762      1093     1226.7    0.782553
+
+
+
+
+
+X <- model.matrix(deptarget ~ ., data=dat3)[, -1]
+y <- as.matrix(dat[, 1]+0)
+
+fit <- glmnet(X, y, family="binomial")
+plot(fit)
+
+cvfit <- cv.glmnet(X, y, alpha=0, standardize=FALSE, family="binomial")
+plot(cvfit)
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- as.matrix(fifelse(preds>.5, 1, 0))
+
+confusionMatrix(factor(y, levels=c(1, 0)), factor(preds, levels=c(1, 0)))
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- fifelse(preds>.5, 1, 0)
+accuracy(preds, y)
+
+
+perform <- function(DT, aseed){
+  set.seed(aseed)
+  trainIndex <- createDataPartition(DT$deptarget, p = .7,
+                                    list = FALSE,
+                                    times = 1)
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+  trainX <- X[trainIndex,]
+  trainY <- Y[trainIndex,]
+  testX <- X[-trainIndex,]
+  testY <- Y[-trainIndex,]
+
+  # fit <- glmnet(X, y, family="binomial")
+  # plot(fit)
+
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=FALSE, family="binomial")
+  # plot(cvfit)
+
+  # print(summary(cvfit))
+  print(coef(cvfit, s="lambda.min"))
+
+  preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  preds <- fifelse(preds>0.4, 1, 0)
+  print(table(preds))
+  return(accuracy(preds, testY))
+}
+
+
+perform(dat3, 1)
+perform(dat3, 2)
+perform(dat1, 2)
+
 

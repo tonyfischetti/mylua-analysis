@@ -27,7 +27,7 @@ INPUT_DATA.TRIMESTER = {
 
 INPUT_DATA.VALUESET = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.asc",
-  "MD5": "2af193be72bfa814ef929566a4e24832",
+  "MD5": "950d1f5e6b788bcc6b4bf2e5af368359",
   "LOC": "./data/valuesets.csv.asc",
   "DES": "valueset crosswalk"
 };
@@ -116,7 +116,7 @@ const checkADatum = (cb, dataObj) => {
       if (md5(buf) !== dataObj.MD5){
         throw Error(`Unexpected change in ${dataObj.LOC}`);
       } else {
-        console.log("Hash of Trimester data is as expected");
+        console.log("Hash of data is as expected");
       }
     });
 };
