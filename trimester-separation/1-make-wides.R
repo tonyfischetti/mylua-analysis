@@ -18,19 +18,29 @@ library(libbib)
 library(epitools)
 
 
-### now wide form
+args <- commandArgs(trailingOnly=TRUE)
+trime <- as.integer(args[1])
 
-longform <- fread("./target/fe-longform.csv")
 
-## first get the ages
-longform[, .(Age=min(Age),
-             race=race[1],
-             marital_status=marital_status[1],
-             hisp_latino_p=hisp_latino_p[1],
-             FirstAbortedInd=FirstAbortedInd[1],
-             FirstDepressionInd=FirstDepressionInd[1]),
-  .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> others
-setkey(others, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
+enrich <- fread("../target/fe-wideform.csv")
+enrich %>% dt_keep_cols(c("MyLua_Index_PatientID", "Age", "race",
+                          "marital_status", "hisp_latino_p",
+                          "Depression"))
+setkey(enrich, "MyLua_Index_PatientID")
+
+
+
+longform <- fread("../target/fe-longform.csv")
+
+priors <- fread("../target/fe-longform.csv",
+                select=c("MyLua_Index_PatientID", "FirstDepressionInd",
+                         "FirstAbortedInd"))
+priors <- priors[!duplicated(MyLua_Index_PatientID)]
+
+
+### FILTER HERE?!
+
+longform <- longform[Trimester<=trime]
 
 
 ## columns to limit to trimesters 0-3
@@ -68,22 +78,27 @@ part1[, AntidepressantMedication:=NULL]
 
 
 
-## columns to limit to trimester 4 and after
-dcast(longform[Trimester>=4, ],
-      MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
-      value.var="code",
-      fun.aggregate=uniqueN) -> part2
-part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
-                         "Sleep",
-                         "Depression"))
-setnames(part2, "Sleep", "PostnatalSleep")
+if(trime>=4){
+  ## columns to limit to trimester 4 and after
+  dcast(longform[Trimester>=4, ],
+        MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
+        value.var="code",
+        fun.aggregate=uniqueN) -> part2
+  part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
+                           "Sleep"))
+  setnames(part2, "Sleep", "PostnatalSleep")
+  part1 %>% merge(part2) -> parts
+} else {
+  parts <- copy(part1)
+}
 
 
 ##!! TODO: make sure you don't lose records !!@@@@@@@@@@@@@@@@@@@@@@@
 ## putting together pieces for the wide form
-others %>%
-  merge(part1) %>%
-  merge(part2) -> wideform
+enrich %>%
+  merge(parts) -> wideform
+
+wideform %<>% merge(priors, by="MyLua_Index_PatientID")
 
 
 setcolorder(wideform, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
@@ -103,6 +118,7 @@ wideform[, NonMinority:=FALSE]
 wideform[race=="white" & hisp_latino_p==FALSE, NonMinority:=TRUE]
 
 
-fwrite(wideform, "target/fe-wideform.csv")
+fwrite(wideform, sprintf("./wides/t%d.csv", trime))
 
 # --------------------------------------------------------------- #
+

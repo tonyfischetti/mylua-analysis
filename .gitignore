@@ -6,3 +6,4 @@ target/
 packrat/lib*/
 packrat/src*/
 trimester-separation/longs/
+trimester-separation/wides/

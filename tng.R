@@ -60,7 +60,7 @@ dat %>% dt_counts_and_percents("deptarget")
 dat[, uniqueN(MyLua_OBEpisode_ID)]
 dat[, .N]
 # 2022-07-18: 1,877
-# 2022-07-25: 1,877
+# 2022-07-25: 4,111
 
 # NOTE: so this treats every OB episode as independent (bad)
 
@@ -73,19 +73,9 @@ dat %>% dt_del_cols("MyLua_Index_PatientID",
 setcolorder(dat, "deptarget")
 
 
-make_bool     <- function(x) ifelse(x>0, 1, x)
-make_logical  <- function(x) ifelse(x>0, TRUE, FALSE)
-
-
 dat <- dat[complete.cases(dat), ]
-dat1 <- copy(dat)
-dat2 <- copy(dat)
-dat3 <- copy(dat)
 
-dt_apply_fun_to_col_pattern_in_place(dat1, make_bool, "^[A-Z]")
-dt_apply_fun_to_col_pattern_in_place(dat2, make_logical, "^[A-Z]")
-
-## but random forest works best with dat3 (the "magnitudes" included)
+dat
 
 
 
@@ -93,11 +83,237 @@ library(glmnet)
 library(caret)
 library(rfUtilities)
 library(randomForest)
+library(xgboost)
+
+# --------------------------------------------------------------- #
 
 
 
 
-this <- copy(dat3)
+data(agaricus.train, package='xgboost')
+data(agaricus.test, package='xgboost')
+train <- agaricus.train
+test <- agaricus.test
+
+train
+test
+
+bstSparse <- xgboost(data = train$data,
+                     label = train$label,
+                     max.depth = 2,
+                     eta = 1,
+                     nthread = 4,
+                     nrounds = 2,
+                     objective = "binary:logistic")
+
+as.matrix(train$data)
+
+bstDense <- xgboost(data = as.matrix(train$data),
+                    label = train$label,
+                    max.depth = 2,
+                    eta = 1,
+                    nthread = 2,
+                    nrounds = 2,
+                    objective = "binary:logistic",
+                    verbose=2)
+
+pred <- predict(bstDense, test$data)
+prediction <- as.numeric(pred > 0.5)
+err <- mean(as.numeric(pred > 0.5) != test$label)
+print(paste("test-error=", err))
+
+importance_matrix <- xgb.importance(model = bstDense)
+print(importance_matrix)
+xgb.plot.importance(importance_matrix = importance_matrix)
+
+
+
+
+# --------------------------------------------------------------- #
+
+library(caret)
+
+dat
+
+
+trainIndex <- createDataPartition(dat$deptarget, p = .8,
+                                  list = FALSE,
+                                  times = 1)
+
+dense <- as.matrix(model.matrix(deptarget ~ ., data=dat)[,-1])
+
+trainX <- dense[trainIndex,]
+trainY <- dat[trainIndex,]$deptarget+0
+testX  <- dense[-trainIndex,]
+testY  <- dat[-trainIndex,]$deptarget+0
+
+
+dim(trainX)
+dim(trainY)
+
+
+
+
+
+
+bstDense <- xgboost(data = trainX,
+                    label = trainY,
+                    max.depth = 5,
+                    eta = 1,
+                    nthread = 2,
+                    nrounds = 5,
+                    objective = "binary:logistic",
+                    verbose=2)
+
+pred <- predict(bstDense, testX)
+prediction <- as.numeric(pred > 0.5)
+err <- round(1-mean(as.numeric(pred > 0.5) != testY), 2)
+print(paste("test-accuracy =", err))
+
+importance_matrix <- xgb.importance(model = bstDense)
+print(importance_matrix)
+xgb.plot.importance(importance_matrix = importance_matrix)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+this <- copy(dat)
+
+perform <- function(aseed){
+  set.seed(aseed)
+  trainIndex <- createDataPartition(this$deptarget, p = .8,
+                                    list = FALSE,
+                                    times = 1)
+  trainD <- this[trainIndex,]
+  testD <- this[-trainIndex,]
+  forest <- randomForest(deptarget ~ ., data=trainD)
+  preds <- predict(forest, newdata=testD)
+  return(data.table(theseed=aseed, pcc=accuracy(preds, testD[, deptarget])$PCC))
+}
+
+1:10 %>% lapply(perform) %>% rbindlist -> dark
+dark[order(-pcc)]
+# 9 (and .9) is 76%
+
+
+
+
+
+# --------------------------------------------------------------- #
+#> ridge, no pre-processing
+
+X <- model.matrix(deptarget ~ ., data=dat)[, -1]
+y <- as.matrix(dat[, 1]+0)
+
+fit <- glmnet(X, y, family="binomial")
+plot(fit)
+
+cvfit <- cv.glmnet(X, y, alpha=0, standardize=FALSE, family="binomial")
+plot(cvfit)
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- as.matrix(fifelse(preds>.5, 1, 0))
+
+confusionMatrix(factor(y, levels=c(1, 0)), factor(preds, levels=c(1, 0)))
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- fifelse(preds>.5, 1, 0)
+accuracy(preds, y)
+
+# 88%
+
+# --------------------------------------------------------------- #
+
+
+# --------------------------------------------------------------- #
+#> lasso, no pre-processing
+
+X <- model.matrix(deptarget ~ ., data=dat)[, -1]
+y <- as.matrix(dat[, 1]+0)
+
+fit <- glmnet(X, y, family="binomial")
+plot(fit)
+
+cvfit <- cv.glmnet(X, y, alpha=1, standardize=FALSE, family="binomial")
+plot(cvfit)
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- as.matrix(fifelse(preds>.5, 1, 0))
+
+confusionMatrix(factor(y, levels=c(1, 0)), factor(preds, levels=c(1, 0)))
+
+preds <- predict(cvfit, newx=X, s="lambda.min", type="response")
+preds <- fifelse(preds>.5, 1, 0)
+accuracy(preds, y)
+
+# 89%
+
+# --------------------------------------------------------------- #
+
+
+
+perform <- function(DT, aseed){
+  set.seed(aseed)
+  trainIndex <- createDataPartition(DT$deptarget, p = .7,
+                                    list = FALSE,
+                                    times = 1)
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+  trainX <- X[trainIndex,]
+  trainY <- Y[trainIndex,]
+  testX <- X[-trainIndex,]
+  testY <- Y[-trainIndex,]
+
+  # fit <- glmnet(X, y, family="binomial")
+  # plot(fit)
+
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=FALSE, family="binomial")
+  # plot(cvfit)
+
+  # print(summary(cvfit))
+  print(coef(cvfit, s="lambda.min"))
+
+  preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  preds <- fifelse(preds>0.4, 1, 0)
+  print(table(preds))
+  return(accuracy(preds, testY))
+}
+
+
+perform(dat, 2)
+
+
+
+
+
+
+
+
 
 
 
