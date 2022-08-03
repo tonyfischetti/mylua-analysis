@@ -58,8 +58,24 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Diarrhea",
                          "Mood",
                          "Complication-BloodOxygen",
-                         "Hypothyroidism"
+                         "Hypothyroidism",
+                         "Inflammation",
+                         "PregnancyOverseeing-Age35plus",
+                         "Pregnancyorotherrelateddiagnoses",
+                         "Complication-Obesity",
+                         "Complication-Smoking",
+                         "GestationalDiabetes",
+                         "Hemoglobin",
+                         "Complication-HxHypertension",
+                         "HighRiskPregnancy",
+                         "MentalDisorders",  # !!!!
+                         "Obesity",
+                         "MentalDisorder",   # !!!!
+                         "ThreatenedAbortion",
+                         "ThreatenedMiscarriage"
                          ))
+
+# TODO: more
 
 part1[, PrenatalDepressionInd:=AntidepressantMedication+Depression]
 part1[, Depression:=NULL]

@@ -62,6 +62,7 @@ trimesters %<>%
        value.name="code") %>%
   # separate the array into rows
   separate_rows(code, sep="; ") %>%
+  # separate_rows(code, sep="; ?") %>%
   filter(!is.na(code)) %>%
   # extract the LOINC value
   mutate(loincvalue = ifelse(codesystem=="LOINC",
@@ -94,6 +95,15 @@ trimesters %>%
          description,
          # everything()
   ) -> longform
+
+trimesters[,.N]
+# [1] 1135135
+longform[, .N]
+## 2022-08-03
+# [1] 103157
+# [1] 67886
+# Olivia's additions added 35,271
+
 
 setDT(longform)
 
@@ -178,6 +188,9 @@ setkey(abortiveepisodes, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
 longform[!abortiveepisodes] -> longform
 
 
+# 2022-08-03
+longform[, uniqueN(MyLua_Index_PatientID)]                              # 6,433
+longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 7,261
 # 2022-07-25
 longform[, uniqueN(MyLua_Index_PatientID)]                              # 6,332
 longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 7,139
@@ -217,6 +230,27 @@ longform
 
 
 longform[vsacname=="Cesarean", vsacname:="CesareanBirth"]
+
+# --------------------------------------------------------------- #
+
+# adding delivery data
+
+delivery <- fread("./data/delivery.csv")
+delivery[, MyLua_Index_PatientID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "\\-\\d+$", ""))]
+delivery[, MyLua_OBEpisode_ID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "^\\d+\\-", ""))]
+delivery[, MyLua_TrimesterData_v2.MyLua_OBEpisode_ID:=NULL]
+setcolorder(delivery, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
+delivery %>% head
+longform %>% names
+
+
+delivery %>% dt_counts_and_percents("DLVRY_DT_YEAR")
+delivery %>% dt_counts_and_percents("RH_STS")
+
+# TODO: add more cleaning here
+
+
+longform %>% merge(delivery, by=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID")) -> longform
 
 
 fwrite(longform, "target/fe-longform.csv")

@@ -27,7 +27,7 @@ INPUT_DATA.TRIMESTER = {
 
 INPUT_DATA.VALUESET = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.asc",
-  "MD5": "950d1f5e6b788bcc6b4bf2e5af368359",
+  "MD5": "a4238aada6d2897ae9e374eea6c3e97d",
   "LOC": "./data/valuesets.csv.asc",
   "DES": "valueset crosswalk"
 };
@@ -143,6 +143,7 @@ const decryptFiles = (cb) => {
     then(() => lua.decryptFile("./data/valuesets.csv.asc", process.env.GPGPASS)).
     then(() => lua.decryptFile("./data/trimester.csv.asc",  process.env.GPGPASS)).
     then(() => lua.decryptFile("./data/demo.csv.asc",  process.env.GPGPASS)).
+    then(() => lua.decryptFile("./data/delivery.csv.asc",  process.env.GPGPASS)).
     then(() => cb());
 };
 
@@ -233,6 +234,8 @@ exports.analyze   = series(doMakeLong,
                            doMakeWide,
                            doSeperateTrimestersWide,
                            doSeperateTrimestersXgboost);
+
+exports.why = doSeperateTrimestersXgboost;
 
 
 exports.default   = series(exports.setup,
