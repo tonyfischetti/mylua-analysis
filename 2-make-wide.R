@@ -27,11 +27,14 @@ longform[, .(Age=min(Age),
              race=race[1],
              marital_status=marital_status[1],
              hisp_latino_p=hisp_latino_p[1],
+             PHQ_Dep=PHQ[1]>=5,
+             EPDS_Dep=EPDS[1]>=14,
              FirstAbortedInd=FirstAbortedInd[1],
              FirstDepressionInd=FirstDepressionInd[1]),
   .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> others
 setkey(others, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
-
+others[is.na(PHQ_Dep), PHQ_Dep:=FALSE]
+others[is.na(EPDS_Dep), EPDS_Dep:=FALSE]
 
 ## columns to limit to trimesters 0-3
 dcast(longform[Trimester<=3, ],
@@ -46,11 +49,13 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "UncomplicatedBirth",
                          "Anxiety",
                          "Hypertension",
+                         "Autoimmune",
                          "Depression",
                          "BetaBlockers",
                          "Vomiting",
                          "CesareanBirth",
                          "Migraine",
+                         "Cervix-Infection",
                          "Preeclampsia",
                          "Pharyngitis",
                          "Sleep",
@@ -58,6 +63,8 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Diarrhea",
                          "Mood",
                          "Complication-BloodOxygen",
+                         "Complication-AlcoholUse",
+                         "Complication-IllicitDrugUse",
                          "Hypothyroidism",
                          "Inflammation",
                          "PregnancyOverseeing-Age35plus",
@@ -68,12 +75,24 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Hemoglobin",
                          "Complication-HxHypertension",
                          "HighRiskPregnancy",
-                         "MentalDisorders",  # !!!!
+                         "MentalDisorders",
                          "Obesity",
-                         "MentalDisorder",   # !!!!
+                         "Smoking",
+                         "MentalDisorder",
                          "ThreatenedAbortion",
                          "ThreatenedMiscarriage"
                          ))
+
+
+part1[, Obesity:=`Complication-Obesity`+Obesity]
+part1 %>% dt_del_cols("Complication-Obesity")
+
+part1[, Smoking:=`Complication-Smoking`+Smoking]
+part1 %>% dt_del_cols("Complication-Smoking")
+
+part1[, MentalDisorders:=MentalDisorder+MentalDisorders]
+part1 %>% dt_del_cols("MentalDisorder")
+
 
 # TODO: more
 
@@ -93,6 +112,21 @@ part2 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Sleep",
                          "Depression"))
 setnames(part2, "Sleep", "PostnatalSleep")
+
+part2 %<>% merge(others[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID, PHQ_Dep, EPDS_Dep)])
+
+part2[, .N, Depression>0]
+#    Depression     N
+#        <lgcl> <int>
+# 1:      FALSE  4644
+# 2:       TRUE   477
+part2[, Depression:=Depression+PHQ_Dep+EPDS_Dep]
+part2[, .N, Depression>0]
+#    Depression     N
+#        <lgcl> <int>
+# 1:      FALSE  4545
+# 2:       TRUE   576
+
 
 
 ##!! TODO: make sure you don't lose records !!@@@@@@@@@@@@@@@@@@@@@@@
