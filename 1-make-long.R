@@ -39,11 +39,10 @@ trimesters %<>%
   rename(MyLua_Index_PatientID=MyLUA_Index_PatientID,
          Age=Age_at_Trimester,
          PHQ=PHQ_Scrs,
-         GAD=GAD_Scrs,
          EPDS=EPDS_Scrs) %>%
   select(MyLua_Index_PatientID, MyLua_OBEpisode_ID, Trimester, Age, DX_Codes,
          Meds_RXNORM, CPT_Codes, ObsrvtnData.Obsrvtn_Array,
-         PHQ, GAD, EPDS) %>%
+         PHQ, EPDS) %>%
   # remove the patient ID from the episode ID
   mutate(MyLua_OBEpisode_ID=as.integer(str_replace(MyLua_OBEpisode_ID, "^\\d+-", ""))) %>%
   # rename weird column name
@@ -57,7 +56,7 @@ trimesters %<>%
 trimesters %<>%
   # make long (not wide)
   melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester",
-                 "Age", "PHQ", "GAD", "EPDS"),
+                 "Age", "PHQ", "EPDS"),
        variable.name="codesystem",
        value.name="code") %>%
   # separate the array into rows
@@ -70,7 +69,9 @@ trimesters %<>%
                              NA_character_)) %>%
   # conditionally fix the codes for LOINCs using regular expressions
   mutate(code = case_when(codesystem=="LOINC" ~ str_replace(code, ":.+$", ""),
-                          TRUE                ~ code))
+                          TRUE                ~ code)) %>%
+  mutate(PHQ = as.integer(str_replace(PHQ, ".+;\\s+", ""))) %>%
+  mutate(EPDS = as.integer(str_replace(EPDS, ".+;\\s+", "")))
 
 setDT(trimesters)
 trimesters[codesystem=="ICD10CM"]
@@ -86,7 +87,6 @@ trimesters %>%
          Trimester,
          Age,
          PHQ,
-         GAD,
          EPDS,
          vsacname,
          codesystem,
@@ -112,7 +112,6 @@ longform
 
 # how much coverage of depression scores?
 longform %>% dt_na_breakdown("PHQ")
-longform %>% dt_na_breakdown("GAD")
 longform %>% dt_na_breakdown("EPDS")
 # > longform %>% dt_na_breakdown("PHQ")
 #    PHQ_not_na count percent
@@ -133,9 +132,9 @@ longform %>% dt_na_breakdown("EPDS")
 # 2:        TRUE 10678   15.73
 # 3:       TOTAL 67886  100.00
 
-## get rid of for now
-longform[!is.na(PHQ), PHQ]
-longform %>% dt_del_cols("PHQ", "GAD", "EPDS")
+# ## get rid of for now
+# longform[!is.na(PHQ), PHQ]
+# longform %>% dt_del_cols("PHQ", "GAD", "EPDS")
 
 
 # --------------------------------------------------------------- #
