@@ -28,7 +28,7 @@ trime <- as.integer(args[1])
 enrich <- fread("../target/fe-wideform.csv")
 enrich %>% dt_keep_cols(c("MyLua_Index_PatientID", "Age", "race",
                           "marital_status", "hisp_latino_p",
-                          "Depression"))
+                          "Depression", "PHQ_Dep", "EPDS_Dep"))
 setkey(enrich, "MyLua_Index_PatientID")
 
 
@@ -46,6 +46,9 @@ priors <- priors[!duplicated(MyLua_Index_PatientID)]
 longform <- longform[Trimester<=trime]
 
 
+enrich[is.na(PHQ_Dep), PHQ_Dep:=FALSE]
+enrich[is.na(EPDS_Dep), EPDS_Dep:=FALSE]
+
 ## columns to limit to trimesters 0-3
 dcast(longform[Trimester<=3, ],
       MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ vsacname,
@@ -59,11 +62,13 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "UncomplicatedBirth",
                          "Anxiety",
                          "Hypertension",
+                         "Autoimmune",
                          "Depression",
                          "BetaBlockers",
                          "Vomiting",
                          "CesareanBirth",
                          "Migraine",
+                         "Cervix-Infection",
                          "Preeclampsia",
                          "Pharyngitis",
                          "Sleep",
@@ -71,9 +76,35 @@ part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
                          "Diarrhea",
                          "Mood",
                          "Complication-BloodOxygen",
-                         "Hypothyroidism"
+                         "Complication-AlcoholUse",
+                         "Complication-IllicitDrugUse",
+                         "Hypothyroidism",
+                         "Inflammation",
+                         "PregnancyOverseeing-Age35plus",
+                         "Pregnancyorotherrelateddiagnoses",
+                         "Complication-Obesity",
+                         "Complication-Smoking",
+                         "GestationalDiabetes",
+                         "Hemoglobin",
+                         "Complication-HxHypertension",
+                         "HighRiskPregnancy",
+                         "MentalDisorders",
+                         "Obesity",
+                         "Smoking",
+                         "MentalDisorder",
+                         "ThreatenedAbortion",
+                         "ThreatenedMiscarriage"
                          ))
 
+
+part1[, Obesity:=`Complication-Obesity`+Obesity]
+part1 %>% dt_del_cols("Complication-Obesity")
+
+part1[, Smoking:=`Complication-Smoking`+Smoking]
+part1 %>% dt_del_cols("Complication-Smoking")
+
+part1[, MentalDisorders:=MentalDisorder+MentalDisorders]
+part1 %>% dt_del_cols("MentalDisorder")
 part1[, PrenatalDepressionInd:=AntidepressantMedication+Depression]
 part1[, Depression:=NULL]
 part1[, AntidepressantMedication:=NULL]

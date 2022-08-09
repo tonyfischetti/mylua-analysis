@@ -127,6 +127,8 @@ part2[, .N, Depression>0]
 # 1:      FALSE  4545
 # 2:       TRUE   576
 
+part2 %>% dt_del_cols("PHQ_Dep", "EPDS_Dep")
+
 
 
 ##!! TODO: make sure you don't lose records !!@@@@@@@@@@@@@@@@@@@@@@@
@@ -152,6 +154,7 @@ wideform %>% dt_del_cols("FirstDepressionInd", "FirstAbortedInd")
 wideform[, NonMinority:=FALSE]
 wideform[race=="white" & hisp_latino_p==FALSE, NonMinority:=TRUE]
 
+# wideform %>% dt_del_cols("PHQ_Dep", "EPDS_Dep")
 
 fwrite(wideform, "target/fe-wideform.csv")
 

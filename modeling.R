@@ -45,9 +45,7 @@ dt_apply_fun_to_cols_matching_predicate_in_place <- function(DT, fun, predicate)
 
 dat <- fread("./target/fe-wideform.csv")
 
-setnames(dat, "Complication-FetalStress", "ComplicationFetalStress")
-setnames(dat, "Complication-BloodOxygen", "ComplicationBloodOxygen")
-
+dt_set_clean_names(dat, lower=FALSE)
 
 dat[, deptarget:=Depression>0]
 
@@ -61,6 +59,7 @@ dat[, uniqueN(MyLua_OBEpisode_ID)]
 dat[, .N]
 # 2022-07-18: 1,877
 # 2022-07-25: 1,877
+# 2022-08-09: 4,768
 
 # NOTE: so this treats every OB episode as independent (bad)
 
@@ -143,6 +142,7 @@ perform <- function(aseed){
   return(data.table(theseed=aseed, pcc=accuracy(preds, testD[, deptarget])$PCC))
 }
 
+1:3 %>% lapply(perform) %>% rbindlist -> dark
 1:10 %>% lapply(perform) %>% rbindlist -> dark
 dark[order(-pcc)]
 # 
@@ -557,6 +557,75 @@ perform <- function(DT, aseed){
 
 perform(dat3, 1)
 perform(dat3, 2)
+perform(dat1, 1)
 perform(dat1, 2)
 
 
+
+perform <- function(DT, aseed){
+  set.seed(aseed)
+  trainIndex <- createDataPartition(DT$deptarget, p = .9,
+                                    list = FALSE,
+                                    times = 1)
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+  trainX <- X[trainIndex,]
+  trainY <- Y[trainIndex,]
+  testX <- X[-trainIndex,]
+  testY <- Y[-trainIndex,]
+
+  # fit <- glmnet(X, y, family="binomial")
+  # plot(fit)
+
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=FALSE, family="binomial")
+  # plot(cvfit)
+
+  # print(summary(cvfit))
+  print(coef(cvfit, s="lambda.min"))
+
+  preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  preds <- fifelse(preds>0.4, 1, 0)
+  print(table(preds))
+  return(accuracy(preds, testY))
+}
+
+
+perform(dat3, 1)
+perform(dat3, 2)
+# perform(dat1, 1)
+# perform(dat1, 2)
+
+
+
+perform <- function(DT, aseed){
+  set.seed(aseed)
+  trainIndex <- createDataPartition(DT$deptarget, p = .9,
+                                    list = FALSE,
+                                    times = 1)
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+  trainX <- X[trainIndex,]
+  trainY <- Y[trainIndex,]
+  testX <- X[-trainIndex,]
+  testY <- Y[-trainIndex,]
+
+  # fit <- glmnet(X, y, family="binomial")
+  # plot(fit)
+
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=FALSE, family="binomial")
+  # plot(cvfit)
+
+  # print(summary(cvfit))
+  print(coef(cvfit, s="lambda.min"))
+
+  preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  preds <- fifelse(preds>0.5, 1, 0)
+  print(table(preds))
+  return(accuracy(preds, testY))
+}
+
+# perform(dat3, 1)
+# perform(dat3, 2)
+# perform(dat3, 3)
+# perform(dat3, 4)
+perform(dat3, 5)
