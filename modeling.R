@@ -145,7 +145,7 @@ perform <- function(aseed){
 1:3 %>% lapply(perform) %>% rbindlist -> dark
 1:10 %>% lapply(perform) %>% rbindlist -> dark
 dark[order(-pcc)]
-# 
+#
 # 3 is 89%
 
 
@@ -231,6 +231,7 @@ preds <- predict(forest, newdata=dat)
 
 accuracy(preds, dat[, deptarget])
 
+forest
 
 
 
@@ -247,6 +248,8 @@ accuracy(preds, dat[, deptarget])
 make_rf_imp_table <- function(afit){
   co <- importance(afit, type=1)
   tmp <- row.names(co)
+  print(co)
+  print(tmp)
   DT <- data.table(feature=tmp, coe=co)
   setnames(DT, c("feature", "coe"))
   setorder(DT, -coe)
@@ -596,10 +599,12 @@ perform(dat3, 2)
 # perform(dat1, 2)
 
 
+library(pROC)
+
 
 perform <- function(DT, aseed){
   set.seed(aseed)
-  trainIndex <- createDataPartition(DT$deptarget, p = .9,
+  trainIndex <- createDataPartition(DT$deptarget, p = .8,
                                     list = FALSE,
                                     times = 1)
   X <- model.matrix(deptarget ~ ., data=DT)[, -1]
@@ -608,6 +613,7 @@ perform <- function(DT, aseed){
   trainY <- Y[trainIndex,]
   testX <- X[-trainIndex,]
   testY <- Y[-trainIndex,]
+  print(table(testY))
 
   # fit <- glmnet(X, y, family="binomial")
   # plot(fit)
@@ -621,11 +627,13 @@ perform <- function(DT, aseed){
   preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
   preds <- fifelse(preds>0.5, 1, 0)
   print(table(preds))
+  message("> ")
+  print(ci.auc(preds, testY, conf.level = 0.95, method="bootstrap"))
   return(accuracy(preds, testY))
 }
 
 # perform(dat3, 1)
 # perform(dat3, 2)
-# perform(dat3, 3)
+perform(dat3, 3)
 # perform(dat3, 4)
 perform(dat3, 5)
