@@ -28,7 +28,7 @@ longform[, .(Age=min(Age),
              marital_status=marital_status[1],
              hisp_latino_p=hisp_latino_p[1],
              PHQ_Dep=PHQ[1]>=5,
-             EPDS_Dep=EPDS[1]>=14,
+             EPDS_Dep=EPDS[1]>=10,
              FirstAbortedInd=FirstAbortedInd[1],
              FirstDepressionInd=FirstDepressionInd[1]),
   .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> others
