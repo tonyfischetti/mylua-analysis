@@ -22,7 +22,8 @@ library(epitools)
 
 longform <- fread("./target/fe-longform.csv")
 
-setnames(longform, "Emergency Visits", "EmergencyVisits")
+# renaming
+longform[vsacname=="Emergency Visits", vsacname:="EmergencyVisits"]
 
 ## first get the ages
 longform[, .(Age=min(Age),
@@ -110,14 +111,14 @@ part2 %<>% merge(others[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID, PHQ_Dep, 
 part2[, .N, Depression>0]
 #    Depression     N
 #        <lgcl> <int>
-# 1:      FALSE  4644
+# 1:      FALSE  4672
 # 2:       TRUE   477
 part2[, Depression:=Depression+PHQ_Dep+EPDS_Dep]
 part2[, .N, Depression>0]
 #    Depression     N
 #        <lgcl> <int>
-# 1:      FALSE  4545
-# 2:       TRUE   576
+# 1:      FALSE  4470
+# 2:       TRUE   676
 
 part2 %>% dt_del_cols("PHQ_Dep", "EPDS_Dep")
 
