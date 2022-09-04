@@ -24,14 +24,9 @@ library(rfUtilities)
 
 setwd(here("trimester-separation"))
 
-set.seed(2)
+set.seed(5)
 
 
-
-
-# library(glmnet)
-# library(rfUtilities)
-# library(randomForest)
 
 # --------------------------------------------------------------- #
 
@@ -68,7 +63,7 @@ do.it <- function(trime){
   print(table(testY))
 
 
-  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=FALSE, family="binomial")
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
 
   print(coef(cvfit, s="lambda.min"))
 
