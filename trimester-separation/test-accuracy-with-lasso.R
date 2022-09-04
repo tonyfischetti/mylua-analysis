@@ -40,6 +40,11 @@ set.seed(5)
 do.it <- function(trime){
 
   dat <- fread(sprintf("./wides/t%d.csv", trime))
+
+  # added 2022-09-04
+  dat %>% dt_del_cols("PostnatalSleep", "marital_status", "hisp_latino_p",
+                      "race", "PregnancyOverseeing-Age35plus")
+
   dt_set_clean_names(dat, lower=FALSE)
   dat[, deptarget:=Depression>0]
 

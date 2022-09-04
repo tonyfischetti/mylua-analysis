@@ -172,10 +172,10 @@ const doSeparateTrimestersWide = (cb) => {
   return cb();
 };
 
-const doSeparateTrimestersXgboost = (cb) => {
-  $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-xgboost.R`);
-  return cb();
-};
+// const doSeparateTrimestersXgboost = (cb) => {
+//   $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-xgboost.R`);
+//   return cb();
+// };
 
 const doSeparateTrimestersLasso = (cb) => {
   $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-lasso.R`);
@@ -238,7 +238,7 @@ exports.separate = doSeparateTrimestersWide;
 exports.analyze   = series(doMakeLong,
                            doMakeWide,
                            doSeparateTrimestersWide,
-                           doSeparateTrimestersXgboost,
+                           // doSeparateTrimestersXgboost,
                            doSeparateTrimestersLasso);
 
 exports.default   = series(exports.setup,
