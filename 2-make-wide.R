@@ -22,6 +22,8 @@ library(epitools)
 
 longform <- fread("./target/fe-longform.csv")
 
+setnames(longform, "Emergency Visits", "EmergencyVisits")
+
 ## first get the ages
 longform[, .(Age=min(Age),
              race=race[1],
@@ -44,44 +46,34 @@ dcast(longform[Trimester<=3, ],
 
 # TODO: use "MOOD", too?
 
-part1 %>% dt_keep_cols(c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
-                         "AntidepressantMedication",
-                         "UncomplicatedBirth",
-                         "Anxiety",
-                         "Hypertension",
-                         "Autoimmune",
-                         "Depression",
-                         "BetaBlockers",
-                         "Vomiting",
-                         "CesareanBirth",
-                         "Migraine",
-                         "Cervix-Infection",
-                         "Preeclampsia",
-                         "Pharyngitis",
-                         "Sleep",
-                         "Complication-FetalStress",
-                         "Diarrhea",
-                         "Mood",
-                         "Complication-BloodOxygen",
-                         "Complication-AlcoholUse",
-                         "Complication-IllicitDrugUse",
-                         "Hypothyroidism",
-                         "Inflammation",
-                         "PregnancyOverseeing-Age35plus",
-                         "Pregnancyorotherrelateddiagnoses",
-                         "Complication-Obesity",
-                         "Complication-Smoking",
-                         "GestationalDiabetes",
-                         "Hemoglobin",
-                         "Complication-HxHypertension",
-                         "HighRiskPregnancy",
-                         "MentalDisorders",
-                         "Obesity",
-                         "Smoking",
-                         "MentalDisorder",
-                         "ThreatenedAbortion",
-                         "ThreatenedMiscarriage"
-                         ))
+setnames(part
+
+KEEPERS <- c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
+             "AntidepressantMedication", "UncomplicatedBirth", "Anxiety",
+             "Hypertension", "Autoimmune", "Depression", "BetaBlockers",
+             "Vomiting", "CesareanBirth", "Migraine", "Cervix-Infection",
+             "Preeclampsia", "Pharyngitis", "Sleep",
+             "Complication-FetalStress", "Diarrhea", "Mood",
+             "Complication-BloodOxygen", "Complication-AlcoholUse",
+             "Complication-IllicitDrugUse", "Hypothyroidism", "Inflammation",
+             "PregnancyOverseeing-Age35plus",
+             "Pregnancyorotherrelateddiagnoses", "Complication-Obesity",
+             "Complication-Smoking", "GestationalDiabetes", "Hemoglobin",
+             "Complication-HxHypertension", "HighRiskPregnancy",
+             "MentalDisorders", "Obesity", "Smoking", "MentalDisorder",
+             "ThreatenedAbortion", "ThreatenedMiscarriage",
+             # 2022-09-04
+             "MaternalCare", "PrematureLabor", "EmergencyVisits",
+             "AbdominalPain", "FalseLabor", "PlacentaPlacement",
+             "Screening", "MoreThanOneFetusPerUterus", "Placenta", #!!!!
+             "Hemorrage", "PregnancyOverseeing-HistoryPretermLabor",
+             "PregnancyOverseeing-FollowingNeglect", "PretermLabor", #!!!!
+             "UrinaryTract-Infection", "HeartIrregularities",
+             "Smoke")
+             ## TODO: add more (but which ones?!)
+
+
+part1 %>% dt_keep_cols(KEEPERS)
 
 
 part1[, Obesity:=`Complication-Obesity`+Obesity]
