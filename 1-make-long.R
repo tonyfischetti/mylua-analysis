@@ -69,11 +69,19 @@ trimesters %<>%
                              NA_character_)) %>%
   # conditionally fix the codes for LOINCs using regular expressions
   mutate(code = case_when(codesystem=="LOINC" ~ str_replace(code, ":.+$", ""),
-                          TRUE                ~ code)) %>%
-  mutate(PHQ = as.integer(str_replace(PHQ, ".+;\\s+", ""))) %>%
-  mutate(EPDS = as.integer(str_replace(EPDS, ".+;\\s+", "")))
+                          TRUE                ~ code))
 
 setDT(trimesters)
+
+tphq <- trimesters[, PHQ]
+tphq <- sapply(sapply(sapply(tphq, function(x) str_split(x, "; ")), as.integer), max)
+trimesters[, PHQ:=tphq]
+
+tepds <- trimesters[, EPDS]
+tepds <- sapply(sapply(sapply(tepds, function(x) str_split(x, "; ")), as.integer), max)
+trimesters[, EPDS:=tepds]
+
+
 trimesters[codesystem=="ICD10CM"]
 trimesters[codesystem=="ICD10CM", code:=str_replace_all(code, "\\.", "")]
 
