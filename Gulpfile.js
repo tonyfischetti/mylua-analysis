@@ -165,15 +165,20 @@ const doMakeWide = (cb) => {
 };
 
 
-const doSeperateTrimestersWide = (cb) => {
+const doSeparateTrimestersWide = (cb) => {
   [...Array(9).keys()].map(ind => {
     $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/1-make-wides.R ${ind}`);
   });
   return cb();
 };
 
-const doSeperateTrimestersXgboost = (cb) => {
+const doSeparateTrimestersXgboost = (cb) => {
   $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-xgboost.R`);
+  return cb();
+};
+
+const doSeparateTrimestersLasso = (cb) => {
+  $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-lasso.R`);
   return cb();
 };
 
@@ -228,15 +233,13 @@ exports.check  = parallel(checkTrimesterData,
 
 exports.decrypt   = decryptFiles;
 
-exports.separate = doSeperateTrimestersWide;
+exports.separate = doSeparateTrimestersWide;
 
 exports.analyze   = series(doMakeLong,
                            doMakeWide,
-                           doSeperateTrimestersWide,
-                           doSeperateTrimestersXgboost);
-
-exports.why = doSeperateTrimestersXgboost;
-
+                           doSeparateTrimestersWide,
+                           doSeparateTrimestersXgboost,
+                           doSeparateTrimestersLasso);
 
 exports.default   = series(exports.setup,
                            exports.download,

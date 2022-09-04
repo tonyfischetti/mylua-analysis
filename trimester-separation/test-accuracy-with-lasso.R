@@ -89,9 +89,12 @@ do.it <- function(trime){
 
 
 
+
 0:8 %>%
   lapply(do.it) %>%
-  rbindlist %>%
+  rbindlist -> tmp
+
+tmp %>% dcast(trimester ~ vari) %>%
   fwrite("./results/lasso.csv")
 
 
