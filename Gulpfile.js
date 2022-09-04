@@ -27,7 +27,7 @@ INPUT_DATA.TRIMESTER = {
 
 INPUT_DATA.VALUESET = {
   "URL": "https://mlua.s3.us-east-2.amazonaws.com/valuesets.csv.asc",
-  "MD5": "44dab927e0a7a02464feeef6e8264a19",
+  "MD5": "b7b0d5ed712a95cafc9da9f8a3335a89",
   "LOC": "./data/valuesets.csv.asc",
   "DES": "valueset crosswalk"
 };

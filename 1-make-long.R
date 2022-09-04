@@ -99,6 +99,8 @@ trimesters %>%
 trimesters[,.N]
 # [1] 1135135
 longform[, .N]
+## 2022-09-04
+# [1] 108268
 ## 2022-08-03
 # [1] 103157
 # [1] 67886
@@ -187,6 +189,9 @@ setkey(abortiveepisodes, "MyLua_Index_PatientID", "MyLua_OBEpisode_ID")
 longform[!abortiveepisodes] -> longform
 
 
+# 2022-09-04
+longform[, uniqueN(MyLua_Index_PatientID)]                              # 6,448
+longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 7,276
 # 2022-08-03
 longform[, uniqueN(MyLua_Index_PatientID)]                              # 6,433
 longform[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] %>% uniqueN    # 7,261
