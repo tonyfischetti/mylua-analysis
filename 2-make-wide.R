@@ -25,13 +25,13 @@ longform <- fread("./target/fe-longform.csv")
 # renaming
 longform[vsacname=="Emergency Visits", vsacname:="EmergencyVisits"]
 
-## first get the ages
+## first get the ages (and the other things that don't change)
 longform[, .(Age=min(Age),
              race=race[1],
              marital_status=marital_status[1],
              hisp_latino_p=hisp_latino_p[1],
              PHQ_Dep=PHQ[1]>=5,
-             EPDS_Dep=EPDS[1]>=10,
+             EPDS_Dep=EPDS[1]>=14,
              FirstAbortedInd=FirstAbortedInd[1],
              FirstDepressionInd=FirstDepressionInd[1]),
   .(MyLua_Index_PatientID, MyLua_OBEpisode_ID)] -> others
@@ -46,8 +46,6 @@ dcast(longform[Trimester<=3, ],
       fun.aggregate=uniqueN) -> part1
 
 # TODO: use "MOOD", too?
-
-setnames(part
 
 KEEPERS <- c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID",
              "AntidepressantMedication", "UncomplicatedBirth", "Anxiety",
@@ -117,8 +115,9 @@ part2[, Depression:=Depression+PHQ_Dep+EPDS_Dep]
 part2[, .N, Depression>0]
 #    Depression     N
 #        <lgcl> <int>
-# 1:      FALSE  4470
-# 2:       TRUE   676
+# 1:      FALSE  4573
+# 2:       TRUE   576
+## the more stringent EPDS, PHQ cutoffs reduce base rate of no PPD
 
 part2 %>% dt_del_cols("PHQ_Dep", "EPDS_Dep")
 
