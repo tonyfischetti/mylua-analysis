@@ -84,6 +84,9 @@ part1 %>% dt_del_cols("Complication-Smoking")
 part1[, MentalDisorders:=MentalDisorder+MentalDisorders]
 part1 %>% dt_del_cols("MentalDisorder")
 
+part1[, Hypertension:=Hypertension+`Complication-HxHypertension`]
+part1 %>% dt_del_cols("Complication-HxHypertension")
+
 
 # TODO: more
 

@@ -71,6 +71,14 @@ do.it <- function(trime){
   cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
 
   print(coef(cvfit, s="lambda.min"))
+  if(trime==8){
+    coef(cvfit, s="lambda.min") -> tmp
+    tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
+    tmp <- tmp[-1,]
+    setnames(tmp, c("feature", "coefficient"))
+    tmp[coefficient==0, coefficient:=NA]
+    tmp[order(-coefficient)] %>% fwrite("./results/lasso-coeffs.csv", sep=",")
+  }
 
   preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
   preds <- fifelse(preds>0.5, 1, 0)
