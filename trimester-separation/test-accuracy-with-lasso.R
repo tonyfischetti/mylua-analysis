@@ -43,7 +43,7 @@ do.it <- function(trime){
 
   # added 2022-09-04
   dat %>% dt_del_cols("PostnatalSleep", "marital_status", "hisp_latino_p",
-                      "race", "PregnancyOverseeing-Age35plus")
+                      "race", "PregnancyOverseeing-Age35plus", "NonMinority")
 
   dt_set_clean_names(dat, lower=FALSE)
   dat[, deptarget:=Depression>0]
@@ -71,14 +71,14 @@ do.it <- function(trime){
   cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
 
   print(coef(cvfit, s="lambda.min"))
-  if(trime==8){
-    coef(cvfit, s="lambda.min") -> tmp
-    tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
-    tmp <- tmp[-1,]
-    setnames(tmp, c("feature", "coefficient"))
-    tmp[coefficient==0, coefficient:=NA]
-    tmp[order(-coefficient)] %>% fwrite("./results/lasso-coeffs.csv", sep=",")
-  }
+
+  coef(cvfit, s="lambda.min") -> tmp
+  tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
+  tmp <- tmp[-1,]
+  setnames(tmp, c("feature", "coefficient"))
+  tmp[coefficient==0, coefficient:=NA]
+  tmp[order(-coefficient)] %>%
+    fwrite(sprintf("./results/coeffs/lasso-coeffs-%d.csv", trime), sep=",")
 
   preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
   preds <- fifelse(preds>0.5, 1, 0)
@@ -92,7 +92,6 @@ do.it <- function(trime){
                     val=c(obj$PCC, obj$auc, obj$sensitivity,
                           obj$specificity, obj$f.score, obj$typeI.error,
                           obj$typeII.error)))
-
 }
 
 
