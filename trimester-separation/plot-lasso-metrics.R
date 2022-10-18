@@ -29,7 +29,7 @@ source("~/.rix/tony-utils.R")
 library(ggplot2)
 
 
-dat -1<- fread("./results/lasso.csv")
+dat <- fread("./results/lasso.csv")
 
 ggplot(dat, aes(x=trimester, y=PCC)) +
   geom_line() +
@@ -38,5 +38,31 @@ ggplot(dat, aes(x=trimester, y=PCC)) +
   ggtitle("base rate compared to PCC of lasso model throughout trimesters")
 ggsave("./results/PCC-plot.png")
 
+
+
+read.single.coef <- function(trime) {
+  fn <- sprintf("results/coeffs/lasso-coeffs-%d.csv", trime)
+  # print(fn)
+  tmp <- fread(fn)
+  tmp[, up_to_trimester:=trime]
+  setcolorder(tmp, "up_to_trimester")
+  tmp[]
+}
+
+
+0:8 %>%
+  lapply(read.single.coef) %>%
+  rbindlist -> comb
+
+comb[is.na(coefficient), coefficient:=0]
+
+# comb <- comb[str_detect(feature, "TRUE")]
+comb[up_to_trimester==8 & coefficient >= .15, feature] -> these
+comb <- comb[feature %chin% these]
+
+ggplot(comb, aes(x=up_to_trimester, y=coefficient, color=feature)) +
+  geom_line()
+
+ggsave("./results/coeffs-through-the-trimesters.png")
 
 

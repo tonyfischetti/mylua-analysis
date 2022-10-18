@@ -74,7 +74,7 @@ const setupDirs = (cb) => {
   $.mkdir("-p", "data");
   $.mkdir("-p", "target");
   $.mkdir("-p", "trimester-separation/wides");
-  $.mkdir("-p", "trimester-separation/results");
+  $.mkdir("-p", "trimester-separation/results/coeffs");
   return cb();
 };
 
@@ -164,18 +164,12 @@ const doMakeWide = (cb) => {
   return cb();
 };
 
-
 const doSeparateTrimestersWide = (cb) => {
   [...Array(9).keys()].map(ind => {
     $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/1-make-wides.R ${ind}`);
   });
   return cb();
 };
-
-// const doSeparateTrimestersXgboost = (cb) => {
-//   $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-xgboost.R`);
-//   return cb();
-// };
 
 const doSeparateTrimestersLasso = (cb) => {
   $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-lasso.R`);
@@ -238,7 +232,6 @@ exports.separate = doSeparateTrimestersWide;
 exports.analyze   = series(doMakeLong,
                            doMakeWide,
                            doSeparateTrimestersWide,
-                           // doSeparateTrimestersXgboost,
                            doSeparateTrimestersLasso);
 
 exports.default   = series(exports.setup,

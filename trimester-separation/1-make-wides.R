@@ -24,8 +24,6 @@ setwd(here("trimester-separation"))
 args <- commandArgs(trailingOnly=TRUE)
 trime <- as.integer(args[1])
 
-# renaming
-longform[vsacname=="Emergency Visits", vsacname:="EmergencyVisits"]
 
 enrich <- fread("../target/fe-wideform.csv")
 enrich %>% dt_keep_cols(c("MyLua_Index_PatientID", "Age", "race",
@@ -36,6 +34,9 @@ setkey(enrich, "MyLua_Index_PatientID")
 
 
 longform <- fread("../target/fe-longform.csv")
+
+# renaming
+longform[vsacname=="Emergency Visits", vsacname:="EmergencyVisits"]
 
 priors <- fread("../target/fe-longform.csv",
                 select=c("MyLua_Index_PatientID", "FirstDepressionInd",
