@@ -70,9 +70,11 @@ do.it <- function(trime){
 
   cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
 
-  print(coef(cvfit, s="lambda.min"))
+  # print(coef(cvfit, s="lambda.min"))
+  print(coef(cvfit, s="lambda.1se"))
 
-  coef(cvfit, s="lambda.min") -> tmp
+  # coef(cvfit, s="lambda.min") -> tmp
+  coef(cvfit, s="lambda.1se") -> tmp
   tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
   tmp <- tmp[-1,]
   setnames(tmp, c("feature", "coefficient"))
@@ -80,7 +82,8 @@ do.it <- function(trime){
   tmp[order(-coefficient)] %>%
     fwrite(sprintf("./results/coeffs/lasso-coeffs-%d.csv", trime), sep=",")
 
-  preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  # preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
+  preds <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
   preds <- fifelse(preds>0.5, 1, 0)
   # print(table(preds))
   # message("> ")
