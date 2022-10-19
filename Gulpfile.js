@@ -60,6 +60,13 @@ INPUT_DATA.SCREENING_DATA = {
   "DES": "FILL OUT LATER!"
 };
 
+INPUT_DATA.CCSR_SET = {
+  "URL": "https://mlua.s3.us-east-2.amazonaws.com/dx-ccsr.csv.asc",
+  "MD5": "b41291a8dec881b3b1c20d01a152633f",
+  "LOC": "./data/dx-ccsr.csv.asc",
+  "DES": "FILL OUT LATER!"
+};
+
 /* --------------------------------------------------------------- */
 
 
@@ -103,6 +110,7 @@ const downloadDeliveryData = (cb)   => downloadADatum(cb, INPUT_DATA.DELIVERY_DA
 const downloadDemoData = (cb)       => downloadADatum(cb, INPUT_DATA.DEMO_DATA);
 const downloadObsXWalk = (cb)       => downloadADatum(cb, INPUT_DATA.OBS_XWALK);
 const downloadScreeningData = (cb)  => downloadADatum(cb, INPUT_DATA.SCREENING_DATA);
+const downloadCCSRData = (cb)       => downloadADatum(cb, INPUT_DATA.CCSR_SET);
 
 
 /* ---------------------------------------------------------------
@@ -129,6 +137,7 @@ const checkDeliveryData = (cb)   => checkADatum(cb, INPUT_DATA.DELIVERY_DATA);
 const checkDemoData = (cb)       => checkADatum(cb, INPUT_DATA.DEMO_DATA);
 const checkObsXWalk = (cb)       => checkADatum(cb, INPUT_DATA.OBS_XWALK);
 const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
+const checkCCSRData = (cb)       => checkADatum(cb, INPUT_DATA.CCSR_SET);
 
 
 
@@ -140,10 +149,11 @@ const checkScreeningData = (cb)  => checkADatum(cb, INPUT_DATA.SCREENING_DATA);
 
 const decryptFiles = (cb) => {
   return Promise.resolve().
-    then(() => lua.decryptFile("./data/valuesets.csv.asc", process.env.GPGPASS)).
-    then(() => lua.decryptFile("./data/trimester.csv.asc",  process.env.GPGPASS)).
-    then(() => lua.decryptFile("./data/demo.csv.asc",  process.env.GPGPASS)).
-    then(() => lua.decryptFile("./data/delivery.csv.asc",  process.env.GPGPASS)).
+    then(() => lua.decryptFile(INPUT_DATA.VALUESET.LOC,      process.env.GPGPASS)).
+    then(() => lua.decryptFile(INPUT_DATA.TRIMESTER.LOC,     process.env.GPGPASS)).
+    then(() => lua.decryptFile(INPUT_DATA.DEMO_DATA.LOC,     process.env.GPGPASS)).
+    then(() => lua.decryptFile(INPUT_DATA.DELIVERY_DATA.LOC, process.env.GPGPASS)).
+    then(() => lua.decryptFile(INPUT_DATA.CCSR_SET.LOC,      process.env.GPGPASS)).
     then(() => cb());
 };
 
@@ -216,14 +226,16 @@ exports.download  = series(exports.setup,
                                     downloadDeliveryData,
                                     downloadDemoData,
                                     downloadObsXWalk,
-                                    downloadScreeningData));
+                                    downloadScreeningData,
+                                    downloadCCSRData));
 
 exports.check  = parallel(checkTrimesterData,
                           checkValuesetData,
                           checkDeliveryData,
                           checkDemoData,
                           checkObsXWalk,
-                          checkScreeningData);
+                          checkScreeningData,
+                          checkCCSRData);
 
 exports.decrypt   = decryptFiles;
 
