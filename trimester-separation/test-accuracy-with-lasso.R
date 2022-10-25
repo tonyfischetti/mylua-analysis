@@ -35,6 +35,45 @@ set.seed(5)
 
 
 
+do.a.rep <- function(DT, trime, trial, trainIndex){
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+  trainX <- X[trainIndex,]
+  trainY <- Y[trainIndex,]
+  testX <- X[-trainIndex,]
+  testY <- Y[-trainIndex,]
+
+  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
+
+  coef(cvfit, s="lambda.1se") -> tmp
+  tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
+  tmp <- tmp[-1,]
+  setnames(tmp, c("feature", "coefficient"))
+  tmp[coefficient==0, coefficient:=NA]
+
+  cres <- copy(tmp)
+  cres[, trimester:=trime]
+  cres[, trial:=trial]
+  setcolorder(cres, c("trimester", "trial", "feature", "coefficient"))
+
+  preds <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
+  preds <- fifelse(preds>0.5, 1, 0)
+
+  obj <- accuracy(preds, testY)
+  rres <- data.table(trimester=trime,
+                     trial=trial,
+                     vari=c("PCC", "AUC", "Sensitivity", "Specificity",
+                            "FScore", "TypeIError", "TypeIIError"),
+                     val=c(obj$PCC, obj$auc, obj$sensitivity,
+                           obj$specificity, obj$f.score, obj$typeI.error,
+                           obj$typeII.error))
+  return(list(rres=rres, cres=cres))
+}
+
+
+
+
+
 
 
 do.it <- function(trime){
@@ -58,54 +97,26 @@ do.it <- function(trime){
 
   DT <- copy(dat)
 
-  trainIndex <- createDataPartition(DT$deptarget, p = .8, list = FALSE, times = 1)
-  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
-  Y <- as.matrix(DT[, 1]+0)
-  trainX <- X[trainIndex,]
-  trainY <- Y[trainIndex,]
-  testX <- X[-trainIndex,]
-  testY <- Y[-trainIndex,]
-  print(table(testY))
+  trainIndices <- createDataPartition(DT$deptarget, p=.8, list=FALSE, times=10)
 
+  lapply(1:10, function(x){
+    do.a.rep(DT, trime, x, trainIndices[, x])
+  }) -> tmp
+  rres <- lapply(tmp, function(x) x$rres) %>% rbindlist
+  cres <- lapply(tmp, function(x) x$cres) %>% rbindlist
 
-  cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
-
-  # print(coef(cvfit, s="lambda.min"))
-  print(coef(cvfit, s="lambda.1se"))
-
-  # coef(cvfit, s="lambda.min") -> tmp
-  coef(cvfit, s="lambda.1se") -> tmp
-  tmp <- as.data.table(as.matrix(tmp), keep.rownames=TRUE)
-  tmp <- tmp[-1,]
-  setnames(tmp, c("feature", "coefficient"))
-  tmp[coefficient==0, coefficient:=NA]
-  tmp[order(-coefficient)] %>%
-    fwrite(sprintf("./results/coeffs/lasso-coeffs-%d.csv", trime), sep=",")
-
-  # preds <- predict(cvfit, newx=testX, s="lambda.min", type="response")
-  preds <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
-  preds <- fifelse(preds>0.5, 1, 0)
-  # print(table(preds))
-  # message("> ")
-  # print(ci.auc(preds, testY, conf.level = 0.95, method="bootstrap"))
-  obj <- accuracy(preds, testY)
-  return(data.table(trimester=trime,
-                    vari=c("PCC", "AUC", "Sensitivity", "Specificity",
-                           "FScore", "TypeIError", "TypeIIError"),
-                    val=c(obj$PCC, obj$auc, obj$sensitivity,
-                          obj$specificity, obj$f.score, obj$typeI.error,
-                          obj$typeII.error)))
+  return(list(rres=rres, cres=cres))
 }
 
 
 
 
 0:8 %>%
-  lapply(do.it) %>%
-  rbindlist -> tmp
+  lapply(do.it) -> tmp
 
-tmp %>% dcast(trimester ~ vari) %>%
-  fwrite("./results/lasso.csv")
+model_assessment   <- lapply(tmp, function(x) x$rres) %>% rbindlist
+model_coefficients <- lapply(tmp, function(x) x$cres) %>% rbindlist
 
-
+model_assessment %>% fwrite("./results/lasso-model-assessments.csv")
+model_coefficients %>% fwrite("./results/lasso-model-coefficients.csv")
 

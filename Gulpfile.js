@@ -81,7 +81,7 @@ const setupDirs = (cb) => {
   $.mkdir("-p", "data");
   $.mkdir("-p", "target");
   $.mkdir("-p", "trimester-separation/wides");
-  $.mkdir("-p", "trimester-separation/results/coeffs");
+  $.mkdir("-p", "trimester-separation/results/");
   return cb();
 };
 
