@@ -13,6 +13,8 @@ library(data.table)
 library(magrittr)
 library(dplyr)
 library(tidyr)
+library(DescTools)
+library(yardstick)
 library(stringr)
 library(libbib)
 library(caret)
@@ -29,8 +31,6 @@ set.seed(5)
 
 
 # --------------------------------------------------------------- #
-
-
 
 
 
@@ -56,17 +56,25 @@ do.a.rep <- function(DT, trime, trial, trainIndex){
   cres[, trial:=trial]
   setcolorder(cres, c("trimester", "trial", "feature", "coefficient"))
 
-  preds <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
-  preds <- fifelse(preds>0.5, 1, 0)
+  preds_resp <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
+  preds <- fifelse(preds_resp>0.5, 1, 0)
 
   obj <- accuracy(preds, testY)
+
+  brier <- BrierScore(preds_resp, testY)
+
+  tmp <- data.table(truth=as.factor(testY), estimate=as.factor(preds))
+  ppv <- ppv(tmp, truth, estimate, estimator="binary")[1, 3] %>% unlist
+  npv <- npv(tmp, truth, estimate, estimator="binary")[1, 3] %>% unlist
+
   rres <- data.table(trimester=trime,
                      trial=trial,
                      vari=c("PCC", "AUC", "Sensitivity", "Specificity",
-                            "FScore", "TypeIError", "TypeIIError"),
+                            "FScore", "TypeIError", "TypeIIError",
+                            "BrierScore", "PPV", "NPV"),
                      val=c(obj$PCC, obj$auc, obj$sensitivity,
                            obj$specificity, obj$f.score, obj$typeI.error,
-                           obj$typeII.error))
+                           obj$typeII.error, brier, ppv, npv))
   return(list(rres=rres, cres=cres))
 }
 

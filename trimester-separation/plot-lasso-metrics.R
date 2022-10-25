@@ -68,6 +68,14 @@ ggsave("./results/coefficients-plot.png")
 
 
 
+ggplot(dat[vari=="BrierScore", .(bs=mean(val)), trimester], aes(x=trimester, y=bs)) +
+  geom_line() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("brier score")
+ggsave("./results/brier-score.png")
+
+
+
 
 
 
