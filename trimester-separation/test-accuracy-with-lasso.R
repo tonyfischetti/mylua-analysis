@@ -34,14 +34,19 @@ set.seed(5)
 
 
 
+# trime <- 3
+# trial <- 1
+# trainIndex <- trainIndices[, 1]
+
+
 
 do.a.rep <- function(DT, trime, trial, trainIndex){
   X <- model.matrix(deptarget ~ ., data=DT)[, -1]
   Y <- as.matrix(DT[, 1]+0)
   trainX <- X[trainIndex,]
   trainY <- Y[trainIndex,]
-  testX <- X[-trainIndex,]
-  testY <- Y[-trainIndex,]
+  testX  <- X[-trainIndex,]
+  testY  <- Y[-trainIndex,]
 
   cvfit <- cv.glmnet(trainX, trainY, alpha=1, standardize=TRUE, family="binomial")
 
@@ -57,7 +62,7 @@ do.a.rep <- function(DT, trime, trial, trainIndex){
   setcolorder(cres, c("trimester", "trial", "feature", "coefficient"))
 
   preds_resp <- predict(cvfit, newx=testX, s="lambda.1se", type="response")
-  preds <- fifelse(preds_resp>0.5, 1, 0)
+  preds <- fifelse(preds_resp>=0.5, 1, 0)
 
   obj <- accuracy(preds, testY)
 
@@ -75,10 +80,27 @@ do.a.rep <- function(DT, trime, trial, trainIndex){
                      val=c(obj$PCC, obj$auc, obj$sensitivity,
                            obj$specificity, obj$f.score, obj$typeI.error,
                            obj$typeII.error, brier, ppv, npv))
-  return(list(rres=rres, cres=cres))
+  return(list(rres=rres, cres=cres, prediction_response=preds_resp,
+              actual=testY, the_model=cvfit))
 }
 
 
+
+make.confusion.row <- function(prediction_response, actual, cutoff) {
+  preds <- fifelse(prediction_response>=cutoff, 1, 0)
+  cm <- caret::confusionMatrix(factor(preds), reference=factor(actual))
+  cm <- cm$table %>% as.data.table
+  cm <- cm[, .(prob_cutoff=cutoff, predicted=Prediction, actual=Reference, N)]
+  cm[predicted==0 & actual==0, type:="true_negatives"]
+  cm[predicted==0 & actual==1, type:="false_negatives"]
+  cm[predicted==1 & actual==0, type:="false_positives"]
+  cm[predicted==1 & actual==1, type:="true_positives"]
+  cm %>% dcast(prob_cutoff ~ type, value.var="N") -> ret
+  ret[, N:=length(actual)]
+  ret[, FPR:=false_positives/N]
+  ret[, TPR:=1-FPR]
+  ret[]
+}
 
 
 
@@ -97,14 +119,20 @@ do.it <- function(trime){
 
   dat %>% dt_counts_and_percents("deptarget")
 
+  patient_ids <- dat[, MyLua_Index_PatientID]
+  patient_episode <- dat[, MyLua_OBEpisode_ID]
   dat %>% dt_del_cols("MyLua_Index_PatientID", "Depression")
 
   setcolorder(dat, "deptarget")
 
+  # TODO: COMPLETE CASES SHOULD BE SOONER!!!!!
   dat <- dat[complete.cases(dat), ]
+  patient_ids <- patient_ids[complete.cases(dat)]
+  patient_episode <- patient_episode[complete.cases(dat)]
 
   DT <- copy(dat)
 
+  ## TODO: use folds instead of bootstrap resampling
   trainIndices <- createDataPartition(DT$deptarget, p=.8, list=FALSE, times=10)
 
   lapply(1:10, function(x){
@@ -112,19 +140,52 @@ do.it <- function(trime){
   }) -> tmp
   rres <- lapply(tmp, function(x) x$rres) %>% rbindlist
   cres <- lapply(tmp, function(x) x$cres) %>% rbindlist
+  the_model <- tmp[[1]]$the_model
 
-  return(list(rres=rres, cres=cres))
+  # (for getting the scores for everyone)
+  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
+  Y <- as.matrix(DT[, 1]+0)
+
+  preds_resp <- predict(the_model, newx=X, s="lambda.1se", type="response")
+  every_patient <- data.table(trimester=trime,
+                              patient_id=patient_ids,
+                              patient_episode=patient_episode,
+                              predicted_prob=preds_resp,
+                              predicted_boolean=fifelse(preds_resp >= 0.5, TRUE, FALSE),
+                              actual_boolean=ifelse(Y==TRUE, TRUE, FALSE))
+  every_patient <- unique(every_patient)
+
+  tmp %>% lapply(function (x) unlist(x$prediction_response)) %>% unlist -> bpr
+  tmp %>% lapply(function (x) unlist(x$actual))              %>% unlist -> ba
+
+  lapply(seq(0, 1, by=0.02), function (x) {
+    make.confusion.row(bpr, ba, x)
+  }) %>% rbindlist -> cms
+  cms[, trimester:=trime]
+  setcolorder(cms, c("trimester"))
+
+  return(list(rres=rres, cres=cres, cms=cms, every_patient=every_patient))
 }
-
-
 
 
 0:8 %>%
   lapply(do.it) -> tmp
 
-model_assessment   <- lapply(tmp, function(x) x$rres) %>% rbindlist
-model_coefficients <- lapply(tmp, function(x) x$cres) %>% rbindlist
 
-model_assessment %>% fwrite("./results/lasso-model-assessments.csv")
+model_assessment        <- lapply(tmp, function(x) x$rres)           %>% rbindlist
+model_coefficients      <- lapply(tmp, function(x) x$cres)           %>% rbindlist
+model_confusion         <- lapply(tmp, function(x) x$cms)            %>% rbindlist
+individual_predictions  <- lapply(tmp, function(x) x$every_patient)  %>% rbindlist
+
+model_assessment   %>% fwrite("./results/lasso-model-assessments.csv")
+model_assessment %>% dcast(trimester + trial ~ vari) %>%
+  fwrite("./results/lasso-model-assessments-wide.csv")
 model_coefficients %>% fwrite("./results/lasso-model-coefficients.csv")
+model_confusion    %>% fwrite("./results/lasso-model-confusion.csv")
+individual_predictions %>% fwrite("./results/individual_predictions.csv")
+
+
+# --------------------------------------------------------------- #
+
+
 
