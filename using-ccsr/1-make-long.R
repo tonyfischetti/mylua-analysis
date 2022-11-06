@@ -56,16 +56,12 @@ trimesters <- fread("../data/trimester.csv", na.strings=c("", "NULL"))
 trimesters[, .(MyLua_Index_PatientID=MyLUA_Index_PatientID,
                MyLua_OBEpisode_ID,
                Trimester,
-               Age=Age_at_Trimester,
-               ICD10CM=DX_Codes,
-               PHQ=PHQ_Scrs,
-               EPDS=EPDS_Scrs)] -> trimesters
+               ICD10CM=DX_Codes)] -> trimesters
 
 
 trimesters %<>%
   # make long (not wide)
-  melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester",
-                 "Age", "PHQ", "EPDS"),
+  melt(id.vars=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID", "Trimester"),
        variable.name="codesystem",
        value.name="code") %>%
   # separate the array into rows
@@ -75,19 +71,9 @@ trimesters %<>%
 
 setDT(trimesters)
 
-tphq <- trimesters[, PHQ]
-tphq <- sapply(sapply(sapply(tphq, function(x) str_split(x, "; ")), as.integer), max)
-trimesters[, PHQ:=tphq]
+trimesters <- trimesters[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID,
+                             Trimester, ICD10CM=code)]
 
-tepds <- trimesters[, EPDS]
-tepds <- sapply(sapply(sapply(tepds, function(x) str_split(x, "; ")), as.integer), max)
-trimesters[, EPDS:=tepds]
-
-trimesters[codesystem=="ICD10CM", ICD10CM:=str_replace_all(code, "\\.", "")]
-trimesters %>% dt_del_cols("codesystem", "code")
-
-trimesters[, .(ICD10CM)]
-ccsr[, .(ICD10CM)]
 
 setkey(trimesters, "ICD10CM")
 setkey(ccsr, "ICD10CM")
@@ -105,7 +91,7 @@ unique(comb)[,.N] # [1] 232,888
 
 
 comb[, .(MyLua_Index_PatientID, MyLua_OBEpisode_ID,
-         Trimester, CCSR_cat)] -> comb
+         Trimester, ICD10CM, CCSR_cat)] -> comb
 # comb <- unique(comb)
 
 
@@ -128,59 +114,68 @@ comb
 longform <- copy(comb)
 
 
+longform %>% fwrite("./target/ccsr-wide.csv")
+
+
+dcast(longform[Trimester<=3, ],
+      MyLua_Index_PatientID + MyLua_OBEpisode_ID ~ CCSR_cat,
+      value.var="ICD10CM",
+      fun.aggregate=uniqueN) -> part1
 
 
 
-
-
-
-
-## join with demographic data
-demo <- fread("../data/demo.csv") %>%
-  rename(MyLua_Index_PatientID=MyLUA_Index_PatientID)
-
-setnames(demo, "MRTL_STS", "marital_status")
-demo[, marital_status:=tolower(marital_status)]
-
-racexwalk <- fread("../support/race-xwalk.csv")
-ethxwalk <- fread("../support/ethnicity-xwalk.csv")
-
-demo %>%
-  merge(racexwalk, by="p_race") %>%
-  merge(ethxwalk, by="p_ethcty") -> demo
-
-demo %>% dt_keep_cols(c("MyLua_Index_PatientID", "marital_status",
-                        "race", "hisp_latino_p"))
-
-longform <- longform %>% merge(demo, all.x=TRUE, by="MyLua_Index_PatientID")
-
-longform
-
-
-
-# --------------------------------------------------------------- #
-
-# adding delivery data
-
-delivery <- fread("../data/delivery.csv")
-delivery[, MyLua_Index_PatientID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "\\-\\d+$", ""))]
-delivery[, MyLua_OBEpisode_ID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "^\\d+\\-", ""))]
-delivery[, MyLua_TrimesterData_v2.MyLua_OBEpisode_ID:=NULL]
-setcolorder(delivery, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
-delivery %>% head
-longform %>% names
-
-
-delivery %>% dt_counts_and_percents("DLVRY_DT_YEAR")
-delivery %>% dt_counts_and_percents("RH_STS")
-
-# TODO: add more cleaning here
-
-
-longform[, MyLua_OBEpisode_ID:=as.integer(str_replace(MyLua_OBEpisode_ID, "^.+-", ""))]
-
-longform %>% merge(delivery, by=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID")) -> longform
-
-
-fwrite(longform, "target/fe-longform.csv")
+#
+#
+#
+#
+#
+#
+# ## join with demographic data
+# demo <- fread("../data/demo.csv") %>%
+#   rename(MyLua_Index_PatientID=MyLUA_Index_PatientID)
+#
+# setnames(demo, "MRTL_STS", "marital_status")
+# demo[, marital_status:=tolower(marital_status)]
+#
+# racexwalk <- fread("../support/race-xwalk.csv")
+# ethxwalk <- fread("../support/ethnicity-xwalk.csv")
+#
+# demo %>%
+#   merge(racexwalk, by="p_race") %>%
+#   merge(ethxwalk, by="p_ethcty") -> demo
+#
+# demo %>% dt_keep_cols(c("MyLua_Index_PatientID", "marital_status",
+#                         "race", "hisp_latino_p"))
+#
+# longform <- longform %>% merge(demo, all.x=TRUE, by="MyLua_Index_PatientID")
+#
+# longform
+#
+#
+#
+# # --------------------------------------------------------------- #
+#
+# # adding delivery data
+#
+# delivery <- fread("../data/delivery.csv")
+# delivery[, MyLua_Index_PatientID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "\\-\\d+$", ""))]
+# delivery[, MyLua_OBEpisode_ID:=as.integer(str_replace(MyLua_TrimesterData_v2.MyLua_OBEpisode_ID, "^\\d+\\-", ""))]
+# delivery[, MyLua_TrimesterData_v2.MyLua_OBEpisode_ID:=NULL]
+# setcolorder(delivery, c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID"))
+# delivery %>% head
+# longform %>% names
+#
+#
+# delivery %>% dt_counts_and_percents("DLVRY_DT_YEAR")
+# delivery %>% dt_counts_and_percents("RH_STS")
+#
+# # TODO: add more cleaning here
+#
+#
+# longform[, MyLua_OBEpisode_ID:=as.integer(str_replace(MyLua_OBEpisode_ID, "^.+-", ""))]
+#
+# longform %>% merge(delivery, by=c("MyLua_Index_PatientID", "MyLua_OBEpisode_ID")) -> longform
+#
+#
+# fwrite(longform, "target/fe-longform.csv")
 
