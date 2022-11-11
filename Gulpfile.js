@@ -176,7 +176,7 @@ const doMakeWide = (cb) => {
 
 const doSeparateTrimestersWide = (cb) => {
   [...Array(9).keys()].map(ind => {
-    $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/1-make-wides.R ${ind}`);
+    $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/2-make-wides.R ${ind}`);
   });
   return cb();
 };
