@@ -34,9 +34,9 @@ set.seed(5)
 
 
 
-trime <- 3
-trial <- 1
-trainIndex <- trainIndices[, 1]
+# trime <- 3
+# trial <- 1
+# trainIndex <- trainIndices[, 1]
 
 
 
@@ -119,13 +119,13 @@ do.it <- function(trime){
 
   dat %>% dt_counts_and_percents("deptarget")
 
-
   setcolorder(dat, "deptarget")
 
   # TODO: COMPLETE CASES SHOULD BE SOONER!!!!!
   dat <- dat[complete.cases(dat), ]
   patient_ids <- dat[, MyLua_Index_PatientID]
   patient_episode <- dat[, MyLua_OBEpisode_ID]
+  bkdat <- copy(dat)
   dat %>% dt_del_cols("MyLua_Index_PatientID", "Depression")
 
   DT <- copy(dat)
@@ -134,7 +134,6 @@ do.it <- function(trime){
   patient_ids <- dat[!for_validation]
   patient_episode <- dat[!for_validation]
   HOLD_OUT <- dat[for_validation]
-
 
   ## TODO: use folds instead of bootstrap resampling
   trainIndices <- createDataPartition(DT$deptarget, p=.8, list=FALSE, times=10)
@@ -146,29 +145,25 @@ do.it <- function(trime){
   cres <- lapply(tmp, function(x) x$cres) %>% rbindlist
   the_model <- tmp[[1]]$the_model
 
-  # (for getting the scores for everyone)
-  X <- model.matrix(deptarget ~ ., data=DT)[, -1]
-  Y <- as.matrix(DT[, 1]+0)
-
-
-  ## TMP: for validation set
+  ## for validation set
   X <- model.matrix(deptarget ~ ., data=HOLD_OUT)[, -1]
   Y <- as.matrix(HOLD_OUT[, 1]+0)
-
-  predict(the_model, newx=X, s="lambda.1se", type="response") -> preds_resp
+  preds_resp <- predict(the_model, newx=X, s="lambda.1se", type="response")
   preds <- fifelse(preds_resp>=0.5, 1, 0)
+  validation_set_accuracy <- accuracy(preds, Y)$PCC
 
+  # (for getting the scores for everyone)
+  X <- model.matrix(deptarget ~ ., data=dat)[, -1]
+  Y <- as.matrix(dat[, 1]+0)
+  preds_resp <- predict(the_model, newx=X, s="lambda.1se", type="response")
+  preds <- fifelse(preds_resp>=0.5, 1, 0)
   obj <- accuracy(preds, Y)
 
-
-
-
-  preds_resp <- predict(the_model, newx=X, s="lambda.1se", type="response")
   every_patient <- data.table(trimester=trime,
-                              patient_id=patient_ids,
-                              patient_episode=patient_episode,
+                              patient_id=bkdat[, MyLua_Index_PatientID],
+                              patient_episode=dat[, MyLua_OBEpisode_ID],
                               predicted_prob=preds_resp,
-                              predicted_boolean=fifelse(preds_resp >= 0.5, TRUE, FALSE),
+                              predicted_boolean=preds,
                               actual_boolean=ifelse(Y==TRUE, TRUE, FALSE))
   every_patient <- unique(every_patient)
 
@@ -181,7 +176,8 @@ do.it <- function(trime){
   cms[, trimester:=trime]
   setcolorder(cms, c("trimester"))
 
-  return(list(rres=rres, cres=cres, cms=cms, every_patient=every_patient))
+  return(list(rres=rres, cres=cres, cms=cms, every_patient=every_patient,
+              validation_set_accuracy=validation_set_accuracy))
 }
 
 
@@ -193,13 +189,18 @@ model_assessment        <- lapply(tmp, function(x) x$rres)           %>% rbindli
 model_coefficients      <- lapply(tmp, function(x) x$cres)           %>% rbindlist
 model_confusion         <- lapply(tmp, function(x) x$cms)            %>% rbindlist
 individual_predictions  <- lapply(tmp, function(x) x$every_patient)  %>% rbindlist
+validation_set_accuracy <- lapply(tmp, function(x) x$validation_set_accuracy) %>% unlist
+validation_set_accuracy <- data.table(trimester=0:8,
+                                      validation_set_accuracy=validation_set_accuracy)
+
 
 model_assessment   %>% fwrite("./results/lasso-model-assessments.csv")
 model_assessment %>% dcast(trimester + trial ~ vari) %>%
   fwrite("./results/lasso-model-assessments-wide.csv")
 model_coefficients %>% fwrite("./results/lasso-model-coefficients.csv")
 model_confusion    %>% fwrite("./results/lasso-model-confusion.csv")
-individual_predictions %>% fwrite("./results/individual_predictions.csv")
+individual_predictions %>% fwrite("./results/individual-predictions.csv")
+validation_set_accuracy %>% fwrite("./results/validation-set-accuracy.csv")
 
 
 # --------------------------------------------------------------- #

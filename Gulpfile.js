@@ -182,7 +182,7 @@ const doSeparateTrimestersWide = (cb) => {
 };
 
 const doSeparateTrimestersLasso = (cb) => {
-  $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-accuracy-with-lasso.R`);
+  $.exec(`R_LIBS='~/local/R_libs' Rscript ./trimester-separation/test-lasso-with-validation-set.R`);
   return cb();
 };
 
